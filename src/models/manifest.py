@@ -18,12 +18,23 @@ class Manifest:
 
     mods: list[Mod] = field(default_factory=list)
 
+    @classmethod
+    def from_dict(cls, manifest: dict) -> Manifest:
+        return cls(
+            name=manifest["name"],
+            version=manifest["version"],
+            mc_version=manifest["mc_version"],
+            mc_loader=manifest["mc_loader"],
+            created_at=manifest["created_at"],
+            mods=[Mod.from_dict(mod) for mod in manifest.get("mods", [])],
+        )
+
     def to_dict(self) -> dict:
         return {
             "name": self.name,
             "version": self.version,
             "mc_version": self.mc_version,
             "mc_loader": self.mc_loader,
-            "created_at": self.created_at,
+            "created_at": self.created_at.isoformat(),
             "mods": [mod.to_dict() for mod in self.mods]
         }

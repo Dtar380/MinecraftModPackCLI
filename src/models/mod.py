@@ -11,17 +11,20 @@ class Mod:
     name: str
     hash: str
 
+    mc_version: str
+    mc_loader: str
+
     project_id: str
     version_id: str
 
-    client_side: bool
-    server_side: bool
+    client_side: str
+    server_side: str
 
     file_path: Path
 
-    dependencies: list[Dependency] = field(default_factory=list)
+    is_library: bool
 
-    is_library: bool = False
+    dependencies: list[Dependency] = field(default_factory=list)
 
     @classmethod
     def from_modrinth(
@@ -30,16 +33,43 @@ class Mod:
         return cls(
             name=project_data["title"],
             hash=version_data["files"][0]["hashes"]["sha1"],
+            mc_version=version_data["version"][0],
+            mc_loader=version_data["loader"][0],
             project_id=project_data["id"],
             version_id=version_data["id"],
             client_side=project_data["client_side"],
             server_side=project_data["server_side"],
             file_path=file_path,
+            is_library=cls.__is_library(project_data),
             dependencies=[
                 Dependency.from_dict(dep)
                 for dep in version_data.get("dependencies", [])
             ],
         )
+
+    @classmethod
+    def from_dict(cls, mod: dict) -> Mod:
+        return cls(
+            name=mod["name"],
+            hash=mod["hash"],
+            mc_version=mod["mc_version"],
+            mc_loader=mod["mc_loader"],
+            project_id=mod["project_id"],
+            version_id=mod["version_id"],
+            client_side=mod["client_side"],
+            server_side=mod["server_side"],
+            file_path=mod["file_path"],
+            is_library=True if mod["source"] == "dependency" else False,
+            dependencies=[
+                Dependency.from_dict(dep)
+                for dep in mod.get("dependencies", [])
+            ],
+        )
+
+    @classmethod
+    def __is_library(cls, project_data: dict) -> bool:
+        categories = project_data.get("categories", [])
+        return any(c in ["library", "api", "framework"] for c in categories)
 
     @property
     def client_required(self) -> bool:
@@ -56,10 +86,13 @@ class Mod:
         return {
             "name": self.name,
             "hash": self.hash,
+            "mc_version": self.mc_version,
+            "mc_loader": self.mc_loader,
             "project_id": self.project_id,
             "version_id": self.version_id,
             "client_side": self.client_side,
-            "sever": self.server_side,
+            "file_path": self.file_path,
+            "server": self.server_side,
             "source": "dependency" if self.is_library else "seed",
             "dependencies": [dep.to_dict() for dep in self.dependencies]
         }
