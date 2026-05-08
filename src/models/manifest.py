@@ -25,7 +25,7 @@ class Manifest:
             version=manifest["version"],
             mc_version=manifest["mc_version"],
             mc_loader=manifest["mc_loader"],
-            created_at=manifest["created_at"],
+            created_at=datetime.fromisoformat(manifest["created_at"]),
             mods=[Mod.from_dict(mod) for mod in manifest.get("mods", [])],
         )
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from .dependency import Dependency
 
@@ -20,7 +19,7 @@ class Mod:
     client_side: str
     server_side: str
 
-    file_path: Path
+    file_name: str
 
     is_library: bool
 
@@ -28,18 +27,18 @@ class Mod:
 
     @classmethod
     def from_modrinth(
-        cls, project_data: dict, version_data: dict, file_path: Path
+        cls, project_data: dict, version_data: dict, file_name: str
     ) -> Mod:
         return cls(
             name=project_data["title"],
             hash=version_data["files"][0]["hashes"]["sha1"],
-            mc_version=version_data["version"][0],
-            mc_loader=version_data["loader"][0],
+            mc_version=version_data["game_versions"][0],
+            mc_loader=version_data["loaders"][0],
             project_id=project_data["id"],
             version_id=version_data["id"],
             client_side=project_data["client_side"],
             server_side=project_data["server_side"],
-            file_path=file_path,
+            file_name=file_name,
             is_library=cls.__is_library(project_data),
             dependencies=[
                 Dependency.from_dict(dep)
@@ -58,7 +57,7 @@ class Mod:
             version_id=mod["version_id"],
             client_side=mod["client_side"],
             server_side=mod["server_side"],
-            file_path=mod["file_path"],
+            file_name=mod["file_name"],
             is_library=True if mod["source"] == "dependency" else False,
             dependencies=[
                 Dependency.from_dict(dep)
@@ -91,8 +90,8 @@ class Mod:
             "project_id": self.project_id,
             "version_id": self.version_id,
             "client_side": self.client_side,
-            "file_path": self.file_path,
-            "server": self.server_side,
+            "server_side": self.server_side,
+            "file_name": self.file_name,
             "source": "dependency" if self.is_library else "seed",
             "dependencies": [dep.to_dict() for dep in self.dependencies]
         }
