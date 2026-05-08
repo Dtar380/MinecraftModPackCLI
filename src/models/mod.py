@@ -61,7 +61,5 @@ class Mod:
             "client_side": self.client_side,
             "sever": self.server_side,
             "source": "dependency" if self.is_library else "seed",
-            "dependencies": [
-                dep.to_dict() for dep in self.dependencies
-            ]
+            "dependencies": [dep.to_dict() for dep in self.dependencies]
         }
