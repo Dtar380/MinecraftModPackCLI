@@ -11,6 +11,8 @@ class Manifest:
     name: str
     version: str
 
+    side: str
+
     mc_version: str
     mc_loader: str
 
@@ -23,6 +25,7 @@ class Manifest:
         return cls(
             name=manifest["name"],
             version=manifest["version"],
+            side=manifest["side"],
             mc_version=manifest["mc_version"],
             mc_loader=manifest["mc_loader"],
             created_at=datetime.fromisoformat(manifest["created_at"]),
@@ -33,6 +36,7 @@ class Manifest:
         return {
             "name": self.name,
             "version": self.version,
+            "side": self.side,
             "mc_version": self.mc_version,
             "mc_loader": self.mc_loader,
             "created_at": self.created_at.isoformat(),
