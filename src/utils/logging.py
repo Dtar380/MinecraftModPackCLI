@@ -1,0 +1,103 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Optional
+
+
+class LogLevel(str, Enum):
+    DEBUG = "debug"
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+
+
+class LogTarget(str, Enum):
+    CONSOLE = "console"
+    FILE = "file"
+    BOTH = "both"
+
+
+@dataclass(slots=True)
+class LogRecord:
+    level: LogLevel
+    message: str
+    time: str
+    context: dict[str, Any] = field(default_factory=dict)
+    exc: Optional[Exception] = None
+
+
+class Logger:
+
+    def __init__(
+        self,
+        level: LogLevel = LogLevel.INFO,
+        target: LogTarget = LogTarget.BOTH,
+    ) -> None:
+        self.level = level
+        self.target = target
+        self.run_date = datetime.now().strftime("%Y-%m-%d")
+        self.file_path = Path.cwd() / self.run_date
+
+    def debug(
+        self, message: str, *, context: Optional[dict[str, Any]] = None
+    ) -> None:
+        self._log(LogLevel.DEBUG, message, context=context)
+
+    def info(
+        self, message: str, *, context: Optional[dict[str, Any]] = None
+    ) -> None:
+        self._log(LogLevel.DEBUG, message, context=context)
+
+    def warning(
+        self, message: str, *, context: Optional[dict[str, Any]] = None
+    ) -> None:
+        self._log(LogLevel.DEBUG, message, context=context)
+
+    def error(
+        self,
+        message: str,
+        *,
+        context: Optional[dict[str, Any]] = None,
+        exc: Optional[Exception] = None,
+    ) -> None:
+        self._log(LogLevel.DEBUG, message, context=context, exc=exc)
+
+    def _log(
+        self,
+        level: LogLevel,
+        message: str,
+        *,
+        context: Optional[dict[str, Any]] = None,
+        exc: Optional[Exception] = None,
+    ) -> None:
+        if level < self.level:
+            return
+
+        record = LogRecord(
+            level=level,
+            message=message,
+            time=datetime.now().strftime("%Y-%m-%d"),
+            context=context or {},
+            exc=exc,
+        )
+        line = self._format(record)
+
+        if self.target in (LogTarget.CONSOLE, LogTarget.BOTH):
+            print(line)
+
+        if self.target in (LogTarget.FILE, LogTarget.BOTH):
+            if not self.file_path:
+                return
+            with open(self.file_path, "a", encoding="utf-8") as f:
+                f.write(line + "\n")
+
+    def _format(self, record: LogRecord) -> str:
+        context = (
+            " " + " ".join(f"{k}={v}" for k, v in record.context.items())
+            if record.context
+            else ""
+        )
+        return f"[{record.time}] [{record.level.name}] {record.message}{context}"

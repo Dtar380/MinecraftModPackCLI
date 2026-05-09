@@ -8,6 +8,7 @@ from .mod import Mod
 
 @dataclass(slots=True)
 class Manifest:
+
     name: str
     version: str
 
@@ -16,7 +17,7 @@ class Manifest:
     mc_version: str
     mc_loader: str
 
-    created_at: datetime
+    created_at: datetime = field(default=datetime.now())
 
     mods: list[Mod] = field(default_factory=list)
 

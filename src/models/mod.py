@@ -7,6 +7,7 @@ from .dependency import Dependency
 
 @dataclass(slots=True)
 class Mod:
+
     name: str
     hash: str
 
