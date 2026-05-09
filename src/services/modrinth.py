@@ -4,7 +4,7 @@ from pathlib import Path
 
 import requests  # type: ignore
 
-from ..models.mod import Mod
+from ..models import Mod
 
 
 class ModrinthService:

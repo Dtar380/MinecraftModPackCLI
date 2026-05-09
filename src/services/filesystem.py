@@ -5,8 +5,7 @@ import json
 from pathlib import Path
 import shutil
 
-from ..models.manifest import Manifest
-from ..models.mod import Mod
+from ..models import Manifest, Mod
 
 
 class FilesystemService:
