@@ -18,6 +18,10 @@ class Dependency:
             dependency_type=dependency_data["dependency_type"],
         )
 
+    @property
+    def is_required(self) -> bool:
+        return self.dependency_type == "required"
+
     def to_dict(self) -> dict:
         return {
             "project_id": self.project_id,

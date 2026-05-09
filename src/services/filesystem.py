@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import shutil
 
-from ..models import Manifest, Mod
+from ..models import Manifest
 
 
 class FilesystemService:
@@ -23,18 +23,16 @@ class FilesystemService:
     def build_hash_index(self, mods: list[Path]) -> dict[str, Path]:
         return {self.sha1(mod): mod for mod in mods}
 
-    def copy_mods(
-        self, mods: list[Mod], mods_dir: Path, output_dir: Path
+    def copy_mod(
+        self, src: Path, dst: Path
     ) -> None:
-        for mod in mods:
-            src = mods_dir / mod.file_name
-            dst = output_dir / mod.file_name
-            shutil.copy2(src, dst)
+        shutil.copy2(src, dst)
 
-    def write_manifest(self, manifest: Manifest, output_dir: Path) -> None:
+    def write_manifest(self, manifest: Manifest, output_dir: Path) -> bool:
         file_path = output_dir / "manifest.json"
         with open(file_path, "+w", encoding="utf-8") as f:
             json.dump(manifest.to_dict(), f, indent=2)
+        return True
 
     def read_manifest(self, manifest_path: Path) -> Manifest:
         file_path = manifest_path

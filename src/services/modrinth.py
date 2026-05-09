@@ -23,7 +23,12 @@ class ModrinthService:
 
     def get_project(self, project_id: str) -> dict:
         return self.session.get(
-            f"{self.BASE_URL}/project/{project_id}", timeout=10
+            f"{self.BASE_URL}/project/{project_id}", timeout=2
+        ).json()
+
+    def get_version(self, version_id: str) -> dict:
+        return self.session.get(
+            f"{self.BASE_URL}/version/{version_id}", timeout=2
         ).json()
 
     def resolve_mods(self, hash_index: dict[str, Path]) -> list[Mod]:
@@ -35,15 +40,17 @@ class ModrinthService:
             project_id = version_data["project_id"]
 
             project_data = self.get_project(project_id)
-            Mod.from_modrinth(
+            mod = Mod.from_modrinth(
                 project_data, version_data, hash_index[file_hash].name
             )
+            mods.append(mod)
 
         return mods
 
-    def download_mod(self, mod: Mod, output_dir: Path) -> None:
+    def download_mod(self, mod: Mod, output_dir: Path) -> bool:
         with requests.get(mod.url, stream=True) as r:
             r.raise_for_status()
             with open(output_dir / mod.file_name, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=8192):
                     f.write(chunk)
+        return True
