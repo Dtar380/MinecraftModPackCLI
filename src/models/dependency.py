@@ -5,8 +5,8 @@ from dataclasses import dataclass
 
 @dataclass(slots=True)
 class Dependency:
-    project_id: str | None
-    version_id: str | None
+    project_id: str
+    version_id: str
     dependency_type: str
 
     @classmethod

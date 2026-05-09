@@ -20,6 +20,7 @@ class Mod:
     server_side: str
 
     file_name: str
+    url: str
 
     is_library: bool
 
@@ -39,6 +40,7 @@ class Mod:
             client_side=project_data["client_side"],
             server_side=project_data["server_side"],
             file_name=file_name,
+            url=version_data["files"][0]["url"],
             is_library=cls.__is_library(project_data),
             dependencies=[
                 Dependency.from_dict(dep)
@@ -58,6 +60,7 @@ class Mod:
             client_side=mod["client_side"],
             server_side=mod["server_side"],
             file_name=mod["file_name"],
+            url=mod["url"],
             is_library=True if mod["source"] == "dependency" else False,
             dependencies=[
                 Dependency.from_dict(dep)
@@ -92,6 +95,7 @@ class Mod:
             "client_side": self.client_side,
             "server_side": self.server_side,
             "file_name": self.file_name,
+            "url": self.url,
             "source": "dependency" if self.is_library else "seed",
             "dependencies": [dep.to_dict() for dep in self.dependencies]
         }
