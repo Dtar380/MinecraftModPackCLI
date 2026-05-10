@@ -1,12 +1,18 @@
+# ===============================================
+#  IMPORTS
+# ===============================================
 from __future__ import annotations
 
+# === BUILT IN ===
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import IntEnum, Enum
 from pathlib import Path
 from typing import Any, Optional
 
-
+# ===============================================
+#  ENUMS
+# ===============================================
 class LogLevel(IntEnum):
     DEBUG = 10
     INFO = 20
@@ -19,7 +25,9 @@ class LogTarget(str, Enum):
     FILE = "file"
     BOTH = "both"
 
-
+# ===============================================
+#  DATACLASS
+# ===============================================
 @dataclass(slots=True)
 class LogRecord:
     level: LogLevel
@@ -28,7 +36,9 @@ class LogRecord:
     context: dict[str, Any] = field(default_factory=dict)
     exc: Optional[Exception] = None
 
-
+# ===============================================
+#  LOGGER
+# ===============================================
 class Logger:
 
     def __init__(
