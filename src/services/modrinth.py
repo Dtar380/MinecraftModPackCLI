@@ -1,3 +1,6 @@
+# ===============================================
+#  IMPORTS
+# ===============================================
 from __future__ import annotations
 
 import json
@@ -9,20 +12,44 @@ import requests  # type: ignore
 from ..models import Mod
 from ..utils.logging import Logger
 
-
+# ===============================================
+#  MODRINTH SERVICE
+# ===============================================
 class ModrinthService:
+
+    """
+    ModrinthAPI wrapper for performing requests
+    """
 
     BASE_URL = "https://api.modrinth.com/v2"
 
     def __init__(self):
         self.session = requests.Session()
 
-    def resolve_hashes(self, hashes: list[str], logger: Optional[Logger] = None) -> dict:
+    def resolve_hashes(
+        self, hashes: list[str], logger: Optional[Logger] = None
+    ) -> dict:
+
+        """
+        Resolve the versions response using the hashes of the files
+
+        Parameters:
+            hashesh (list[str]): List of file hashes
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            dict: Json serialized response with all files version data
+
+        Raises:
+            RuntimeError: if the POST request failed
+        """
+
         r = self.session.post(
             f"{self.BASE_URL}/version_files",
             json={"hashes": hashes, "algorithm": "sha1"},
             timeout=10,
         )
+
         if not r.ok:
             if logger:
                 logger.error(
@@ -30,10 +57,29 @@ class ModrinthService:
                     context={"status": str(r.status_code), "url": r.url},
                 )
             raise RuntimeError("Modrinth resolve_hashes failed")
+
         return r.json()
 
-    def get_project(self, project_id: str, logger: Optional[Logger] = None) -> dict:
+    def get_project(
+        self, project_id: str, logger: Optional[Logger] = None
+    ) -> dict:
+
+        """
+        Retrives the project data from the ModrinthAPI
+
+        Parameters:
+            project_id (str): Modrinth ID of the project
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            dict: Json serialized response with the project data
+
+        Raises:
+            RuntimeError: if the GET request failed
+        """
+
         r = self.session.get(f"{self.BASE_URL}/project/{project_id}", timeout=2)
+
         if not r.ok:
             if logger:
                 logger.error(
@@ -45,10 +91,29 @@ class ModrinthService:
                     },
                 )
             raise RuntimeError("Modrinth get_project failed")
+
         return r.json()
 
-    def get_version(self, version_id: str, logger: Optional[Logger] = None) -> dict:
+    def get_version(
+        self, version_id: str, logger: Optional[Logger] = None
+    ) -> dict:
+
+        """
+        Retrives the version data from the ModrinthAPI
+
+        Parameters:
+            version_id (str): Modrinth ID of the version
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            dict: Json serialized response with the version data
+
+        Raises:
+            RuntimeError: if the GET request failed
+        """
+
         r = self.session.get(f"{self.BASE_URL}/version/{version_id}", timeout=2)
+
         if not r.ok:
             if logger:
                 logger.error(
@@ -60,6 +125,7 @@ class ModrinthService:
                     },
                 )
             raise RuntimeError("Modrinth get_version failed")
+
         return r.json()
 
     def get_project_versions(
@@ -69,6 +135,24 @@ class ModrinthService:
         mc_loader: str,
         logger: Optional[Logger] = None,
     ) -> list[dict]:
+
+        """
+        Retrives all of the project versions from the ModrinthAPI that matches
+        the given loader and version
+
+        Parameters:
+            project_id (str): Modrinth ID of the project
+            mc_version (str): Minecraft version filter
+            mc_loader (str): Minecraft loader filter
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            dict: Json serialized response with the versions of the project
+
+        Raises:
+            RuntimeError: if the GET request failed
+        """
+
         r = self.session.get(
             f"{self.BASE_URL}/project/{project_id}/version",
             params={
@@ -77,6 +161,7 @@ class ModrinthService:
             },
             timeout=5,
         )
+
         if not r.ok:
             if logger:
                 logger.error(
@@ -88,11 +173,24 @@ class ModrinthService:
                     },
                 )
             raise RuntimeError("Modrinth get_project_versions failed")
+
         return r.json()
 
     def resolve_mods(
         self, hash_index: dict[str, Path], logger: Optional[Logger] = None
     ) -> list[Mod]:
+
+        """
+        Resolves a list of hashes and returns mod objects
+
+        Parameters:
+            hash_index (dict[str, Path]):Dictionary with hashes as Keys and paths to the files as values
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            list[Mod]: List with all the resolved mods
+        """
+
         result = self.resolve_hashes(list(hash_index.keys()), logger=logger)
 
         mods: list[Mod] = []
@@ -110,15 +208,39 @@ class ModrinthService:
 
     def download_mod(
         self, mod: Mod, output_dir: Path, logger: Optional[Logger] = None
-    ) -> bool:
+    ) -> None:
+
+        """
+        Downloads the mod into an output directory.
+
+        Parameters:
+            mod (Mod): Mod object containing all the metadata of the mod
+            output_dir (Path): Path where the file will be downloaded to
+            logger (Optional[Logger]): Log helper
+
+        Raises:
+            RuntimeError: if the GET request failed
+        """
+
         if logger:
-            logger.debug(
+            logger.info(
                 "Downloading mod",
                 context={"file": mod.file_name, "url": mod.url},
             )
+
         with requests.get(mod.url, stream=True) as r:
-            r.raise_for_status()
+            if not r.ok:
+                if logger:
+                    logger.error(
+                        "Modrinth download_mod failed",
+                        context={
+                            "status": str(r.status_code),
+                            "project_id": mod.project_id,
+                            "url": r.url,
+                        },
+                    )
+                raise RuntimeError("Modrinth download_mod failed")
+
             with open(output_dir / mod.file_name, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=8192):
                     f.write(chunk)
-        return True

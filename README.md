@@ -65,13 +65,13 @@ Currently working on the MVP
 Already Planned releases
 | VERSION | INCLUDES                     |
 | ------- | ---------------------------- |
-| 0.1.0   | Deployable MVP               |
 | 0.2.0   | Docstrings and comments      |
 | 0.3.0   | Improved code base           |
 | 0.4.0   | Error and edge case handling |
 | 0.5.0   | Packwiz like environment     |
 | 0.6.0   | User Configurations          |
 | 0.7.0   | Implement tests              |
+| 1.0.0   | Bug Fix and Release          |
 
 Feel free to open Feature Requests at [issues](https://github.com/Dtar380/WorkspaceAutomation/issues/new/choose).
 
