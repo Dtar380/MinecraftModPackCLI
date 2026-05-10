@@ -1,10 +1,22 @@
+"""
+Defines common Click parameters shared across CLI commands
+"""
+
+# ===============================================
+#  IMPORTS
+# ===============================================
 from __future__ import annotations
 
+# === BUILT IN ===
 from pathlib import Path
 
+# === EXTERNAL ===
 from click import Argument, Option  # type: ignore
 from click import Path as clickPath
 
+# ===============================================
+#  VARIABLES
+# ===============================================
 modpack_param = Argument(["modpack"], required=True)
 src_param = Argument(
     ["src"],

@@ -1,12 +1,18 @@
+# ===============================================
+#  IMPORTS
+# ===============================================
 from __future__ import annotations
 
+# === BUILT IN ===
 from datetime import datetime
 import inspect
 from pathlib import Path
 import traceback
 
+# === EXTERNAL ===
 from click import Command, Group  # type: ignore
 
+# === LOCAL ===
 from .options import (
     modpack_param,
     src_param,
@@ -20,12 +26,23 @@ from .ui import UI
 from ..core import Builder
 from ..utils import errors, Logger, LogLevel, LogTarget  # pylint: disable=W0611
 
-
+# ===============================================
+#  APP
+# ===============================================
 class APP(Group):
+
+    """
+    CLI application group that registers and runs commands
+    """
 
     cwd: Path = Path.cwd()
 
     def __init__(self, *args, **kwargs) -> None:  # pylint: disable=W0613
+
+        """
+        Initializes the CLI app and registers commands
+        """
+
         super().__init__()
         self.__register_commands()
 
@@ -36,6 +53,11 @@ class APP(Group):
         self.builder = Builder()
 
     def __register_commands(self) -> None:
+
+        """
+        Registers public command factory methods defined on the class
+        """
+
         for name, func in inspect.getmembers(
             self.__class__, predicate=inspect.isfunction
         ):
@@ -57,9 +79,32 @@ class APP(Group):
                 self.add_command(result)
 
     def _mods_dir(self, src: Path) -> Path:
+
+        """
+        Resolves the mods directory from a source path
+
+        Parameters:
+            src (Path): Source path pointing to mods or its parent
+
+        Returns:
+            Path: Path to the mods directory
+        """
+
         return src / "mods" if (src / "mods").exists() else src
 
     def _logger(self, command: str, verbose: bool) -> Logger:
+
+        """
+        Builds a logger for a command run
+
+        Parameters:
+            command (str): Command name
+            verbose (bool): Verbose flag
+
+        Returns:
+            Logger: Configured logger instance
+        """
+
         level = LogLevel.DEBUG if verbose else LogLevel.INFO
         target = LogTarget.BOTH if verbose else LogTarget.FILE
         ts = datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
@@ -70,6 +115,13 @@ class APP(Group):
         )
 
     def export(self) -> Command:
+
+        """
+        Creates the export command
+
+        Returns:
+            Command: Click command for exporting packs
+        """
 
         current_frame = inspect.currentframe()
         name = current_frame.f_code.co_name if current_frame else ""
@@ -191,6 +243,23 @@ class APP(Group):
         mods_dir: Path,
         logger: Logger,
     ) -> set[str]:
+
+        """
+        Exports a single pack side and returns the exported project ids
+
+        Parameters:
+            side (str): Side name (client or server)
+            modpack (str): Modpack name
+            version (str): Modpack version
+            seed (list): Seed mods for the side
+            all_mods (list): All resolved mods
+            mods_dir (Path): Directory containing local mods
+            logger (Logger): Log helper
+
+        Returns:
+            set[str]: Project ids included in the exported pack
+        """
+
         side_title = side.capitalize()
 
         if not seed:
@@ -259,6 +328,13 @@ class APP(Group):
         return {mod.project_id for mod in pack}
 
     def manifest(self) -> Command:
+
+        """
+        Creates the manifest command
+
+        Returns:
+            Command: Click command for writing a manifest
+        """
 
         current_frame = inspect.currentframe()
         name = current_frame.f_code.co_name if current_frame else ""
@@ -361,6 +437,13 @@ class APP(Group):
 
     def validate(self) -> Command:
 
+        """
+        Creates the validate command
+
+        Returns:
+            Command: Click command for validating packs
+        """
+
         current_frame = inspect.currentframe()
         name = current_frame.f_code.co_name if current_frame else ""
         help_text = "Validate the mods with the manifest"
@@ -428,6 +511,13 @@ class APP(Group):
         )
 
     def build(self) -> Command:
+
+        """
+        Creates the build command
+
+        Returns:
+            Command: Click command for building packs
+        """
 
         current_frame = inspect.currentframe()
         name = current_frame.f_code.co_name if current_frame else ""
