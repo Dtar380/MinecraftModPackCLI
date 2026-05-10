@@ -66,8 +66,8 @@ Already Planned releases
 | VERSION | INCLUDES                     |
 | ------- | ---------------------------- |
 | 0.2.0   | Docstrings and comments      |
-| 0.3.0   | Improved code base           |
-| 0.4.0   | Error and edge case handling |
+| 0.3.0   | Error and edge case handling |
+| 0.4.0   | Improved code base           |
 | 0.5.0   | Packwiz like environment     |
 | 0.6.0   | User Configurations          |
 | 0.7.0   | Implement tests              |
