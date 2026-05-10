@@ -35,11 +35,11 @@ class Logger:
         self,
         level: LogLevel = LogLevel.INFO,
         target: LogTarget = LogTarget.BOTH,
+        file_path: Optional[Path] = None
     ) -> None:
         self.level = level
         self.target = target
-        self.run_date = datetime.now().strftime("%Y-%m-%d")
-        self.file_path = Path.cwd() / self.run_date
+        self.file_path = file_path or None
 
     def debug(
         self, message: str, *, context: Optional[dict[str, Any]] = None
@@ -79,7 +79,7 @@ class Logger:
         record = LogRecord(
             level=level,
             message=message,
-            time=datetime.now().strftime("%Y-%m-%d"),
+            time=datetime.now().strftime("%H-%M-%S"),
             context=context or {},
             exc=exc,
         )

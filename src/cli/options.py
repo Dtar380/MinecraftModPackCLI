@@ -19,3 +19,4 @@ manifest = Argument(
 version = Option(["--version"], default="1.0.0", type=str)
 server = Option(["--server"], is_flag=True, default=False)
 client = Option(["--client"], is_flag=True, default=False)
+verbose = Option(["--verbose"], is_flag=True, default=False)
