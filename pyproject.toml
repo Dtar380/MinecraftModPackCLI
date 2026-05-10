@@ -3,15 +3,15 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "minecraftmodpack"
+name = "MinecraftModpackCLI"
 version = "0.1.0"
 description = "A tool to make easier creating and releasing modpacks"
 readme = "README.md"
 license = "MIT"
 authors = ["Dtar380"]
 maintainers = ["Dtar380"]
-homepage = "https://github.com/dtar380/MinecraftModpack"
-repository = "https://github.com/dtar380/MinecraftModpack"
+homepage = "https://github.com/dtar380/MinecraftModpackCLI"
+repository = "https://github.com/dtar380/MinecraftModpackCLI"
 keywords = ["minecraft"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -26,9 +26,9 @@ classifiers = [
 packages = [{ include = "src" }]
 
 [tool.poetry.urls]
-"Homepage" = "https://github.com/dtar380/MinecraftModpack"
-"Repository" = "https://github.com/dtar380/MinecraftModpack"
-"Bug Tracker" = "https://github.com/Dtar380/MinecraftModpack/issues"
+"Homepage" = "https://github.com/dtar380/MinecraftModpackCLI"
+"Repository" = "https://github.com/dtar380/MinecraftModpackCLI"
+"Bug Tracker" = "https://github.com/Dtar380/MinecraftModpackCLI/issues"
 
 [tool.poetry.dependencies]
 python = "^3.13"
@@ -37,4 +37,4 @@ click = "^8.3.0"
 yaspin = "^3.4.0"
 
 [tool.poetry.scripts]
-MinecraftDockerCLI = "src.__main__:main"
+MinecraftModpackCLI = "src.__main__:main"
