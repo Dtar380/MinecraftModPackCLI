@@ -1,4 +1,4 @@
 from __future__ import annotations
 
-version = "0.1.0"
+version = "0.1.1"
 name = "MinecraftModPackCLI"
