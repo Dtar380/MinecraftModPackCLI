@@ -139,7 +139,7 @@ class APP(Group):
             )
 
             if server:
-                self._export_side(
+                server_ids = self._export_side(
                     side="server",
                     modpack=modpack,
                     version=version,
@@ -148,9 +148,11 @@ class APP(Group):
                     mods_dir=mods_dir,
                     logger=logger,
                 )
+            else:
+                server_ids = set()
 
             if client:
-                self._export_side(
+                client_ids = self._export_side(
                     side="client",
                     modpack=modpack,
                     version=version,
@@ -159,6 +161,18 @@ class APP(Group):
                     mods_dir=mods_dir,
                     logger=logger,
                 )
+            else:
+                client_ids = set()
+
+            exported_ids = server_ids | client_ids
+            dropped_total = len({m.project_id for m in all_mods}) - len(exported_ids)
+            logger.info(
+                "Export dropped mods",
+                context={
+                    "dropped": str(dropped_total),
+                    "total": str(len(all_mods)),
+                },
+            )
 
             return 0
 
@@ -176,12 +190,12 @@ class APP(Group):
         all_mods: list,
         mods_dir: Path,
         logger: Logger,
-    ) -> None:
+    ) -> set[str]:
         side_title = side.capitalize()
 
         if not seed:
             self.ui.warn(f"No {side} mods to export")
-            return
+            return set()
 
         target_version, target_loader = self.builder.get_unique_compatibility(seed)
         self.ui.stage(f"Resolving {side} dependencies")
@@ -200,16 +214,17 @@ class APP(Group):
 
         if not pack:
             self.ui.warn(f"No {side} mods to export")
-            return
+            return set()
 
         pack_version, pack_loader = self.builder.get_unique_compatibility(pack)
         manifest = self.builder.create_manifest(
-            name=f"{modpack} [{side}]",
+            name=modpack,
             version=version,
             side=side,
             mc_version=pack_version,
             mc_loader=pack_loader,
             mods=pack,
+            logger=logger,
         )
 
         self.ui.stage(f"Exporting {side} pack")
@@ -220,7 +235,6 @@ class APP(Group):
             logger=logger,
         )
         self.ui.done(f"Exporting {side} pack")
-
         logger.info(
             f"{side_title} export result",
             context={
@@ -241,6 +255,8 @@ class APP(Group):
             )
         else:
             self.ui.success(f"{side_title} export complete: {actual} mods")
+
+        return {mod.project_id for mod in pack}
 
     def manifest(self) -> Command:
 
@@ -292,12 +308,9 @@ class APP(Group):
             self.ui.done("Resolving mods")
             logger.info("Mods resolved", context={"count": str(len(all_mods))})
 
-            seed_mods = self.builder.drop_dependencies(all_mods)
-            server_seed, client_seed = self.builder.classify_mods(seed_mods)
-            combined_seed = {m.project_id: m for m in (server_seed + client_seed)}
-            seed_for_manifest = list(combined_seed.values()) or seed_mods or all_mods
+            seed_for_manifest = all_mods
             manifest_version, manifest_loader = self.builder.get_unique_compatibility(
-                seed_for_manifest
+                all_mods
             )
 
             self.ui.stage("Resolving dependencies")
@@ -326,6 +339,7 @@ class APP(Group):
                 mc_version=manifest_version,
                 mc_loader=manifest_loader,
                 mods=full_pack,
+                logger=logger,
             )
 
             self.ui.stage("Writing manifest")
@@ -359,10 +373,13 @@ class APP(Group):
 
             if src.is_dir():
                 manifest_path = src / "manifest.json"
-                base_dir = src
+                if manifest_path.exists():
+                    base_dir = src.parent.parent.parent
+                else:
+                    base_dir = src
             else:
                 manifest_path = src
-                base_dir = src.parent.parent.parent.parent
+                base_dir = src.parent.parent.parent
 
             logger.debug(
                 "Validation paths",

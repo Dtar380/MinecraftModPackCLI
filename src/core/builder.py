@@ -40,17 +40,29 @@ class Builder:
     def discover_mods(
         self, mods_dir: Path, logger: Optional[Logger] = None
     ) -> list[Path]:
-        return self._fs.get_mods(mods_dir, logger=logger)
+        mods = self._fs.get_mods(mods_dir, logger=logger)
+        if logger:
+            logger.info(
+                "Mods discovered",
+                context={"count": str(len(mods)), "dir": str(mods_dir)},
+            )
+        return mods
 
     def build_hash_index(
         self, mods: list[Path], logger: Optional[Logger] = None
     ) -> dict[str, Path]:
-        return self._fs.build_hash_index(mods, logger=logger)
+        index = self._fs.build_hash_index(mods, logger=logger)
+        if logger:
+            logger.info("Hash index built", context={"count": str(len(index))})
+        return index
 
     def resolve_mods(
         self, hash_index: dict[str, Path], logger: Optional[Logger] = None
     ) -> list[Mod]:
-        return self._modrinth.resolve_mods(hash_index, logger=logger)
+        mods = self._modrinth.resolve_mods(hash_index, logger=logger)
+        if logger:
+            logger.info("Mods resolved", context={"count": str(len(mods))})
+        return mods
 
     def get_common_compatibility(
         self, mods: list[Mod]
@@ -118,6 +130,15 @@ class Builder:
     ) -> tuple[list[Mod], dict[str, set[str]]]:
         by_project = {mod.project_id: mod for mod in all_mods}
 
+        if logger:
+            logger.info(
+                "Resolving dependencies",
+                context={
+                    "seed": str(len(seed)),
+                    "known": str(len(all_mods)),
+                },
+            )
+
         if target_version is None or target_loader is None:
             common_versions, common_loaders = self.get_common_compatibility(seed)
             if target_version is None and common_versions:
@@ -177,6 +198,15 @@ class Builder:
         full_pack = [by_project[pid] for pid in expanded if pid in by_project]
         filtered_map = {pid: deps for pid, deps in dependency_map.items() if pid in expanded}
 
+        if logger:
+            logger.info(
+                "Dependencies resolved",
+                context={
+                    "pack": str(len(full_pack)),
+                    "links": str(len(filtered_map)),
+                },
+            )
+
         return full_pack, filtered_map
 
     def create_manifest(
@@ -188,7 +218,18 @@ class Builder:
         mc_version: str,
         mc_loader: str,
         mods: list[Mod],
+        logger: Optional[Logger] = None,
     ) -> Manifest:
+        if logger:
+            logger.info(
+                "Creating manifest",
+                context={
+                    "name": name,
+                    "version": version,
+                    "side": side,
+                    "mods": str(len(mods)),
+                },
+            )
         return Manifest(
             name=name,
             version=version,
@@ -218,6 +259,18 @@ class Builder:
         )
         mods_dir = output_dir / "mods"
 
+        if logger:
+            logger.info(
+                "Exporting pack",
+                context={
+                    "name": manifest.name,
+                    "version": manifest.version,
+                    "side": manifest.side,
+                    "mods": str(len(manifest.mods)),
+                    "output": str(output_dir),
+                },
+            )
+
         mods_dir.mkdir(parents=True, exist_ok=True)
 
         for mod in manifest.mods:
@@ -232,6 +285,12 @@ class Builder:
 
         if self._fs.write_manifest(manifest, output_dir, logger=logger):
             result.manifest = manifest
+
+        if logger:
+            logger.info(
+                "Export complete",
+                context={"exported": str(len(result.exported_mods))},
+            )
 
         return result
 
@@ -259,6 +318,12 @@ class Builder:
             / manifest.side
             / "mods"
         )
+
+        if logger:
+            logger.info(
+                "Validating manifest",
+                context={"mods_dir": str(src_dir)},
+            )
 
         manifest_mods = {mod.file_name for mod in manifest.mods}
         manifest_hashes = {mod.hash for mod in manifest.mods}
@@ -309,8 +374,31 @@ class Builder:
         )
         mods_out.mkdir(parents=True, exist_ok=True)
 
+        if logger:
+            logger.info(
+                "Building pack",
+                context={
+                    "name": manifest.name,
+                    "version": manifest.version,
+                    "side": manifest.side,
+                    "mods": str(len(manifest.mods)),
+                    "output": str(mods_out),
+                },
+            )
+
         for mod in manifest.mods:
+            mod_path = mods_out / mod.file_name
+            if mod_path.exists():
+                if self._fs.sha1(mod_path, logger=logger) == mod.hash:
+                    continue
+
             if self._modrinth.download_mod(mod, mods_out, logger=logger):
                 result.downloaded_mods.append(mod)
+
+        if logger:
+            logger.info(
+                "Build complete",
+                context={"downloaded": str(len(result.downloaded_mods))},
+            )
 
         return result
