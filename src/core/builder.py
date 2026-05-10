@@ -1,36 +1,50 @@
+# ===============================================
+#  IMPORTS
+# ===============================================
 from __future__ import annotations
 
+# === BUILT IN ===
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+# === LOCAL ===
 from ..models import Dependency, Manifest, Mod
 from ..services import FilesystemService, ModrinthService
 from ..utils.logging import Logger
 
-
+# ===============================================
+#  RESPONSE DATACLASS
+# ===============================================
+# === EXPORT RESULT ===
 @dataclass(slots=True)
 class ExportResult:
     mods: list[Mod] = field(default_factory=list)
     exported_mods: list[Mod] = field(default_factory=list)
     manifest: Optional[Manifest] = None
 
-
+# === VALIDATION RESULT ===
 @dataclass(slots=True)
 class ValidationResult:
     missing: list[str] = field(default_factory=list)
     extra: list[str] = field(default_factory=list)
     mismatched: list[str] = field(default_factory=list)
 
-
+# === BUILD RESULT ===
 @dataclass(slots=True)
 class BuildResult:
     mods: list[Mod] = field(default_factory=list)
     downloaded_mods: list[Mod] = field(default_factory=list)
 
-
+# ===============================================
+#  BUILDER
+# ===============================================
 class Builder:
+
+    """
+    Exposes endpoints to orchestrate services
+    """
 
     def __init__(self) -> None:
         self._fs = FilesystemService()
@@ -40,6 +54,18 @@ class Builder:
     def discover_mods(
         self, mods_dir: Path, logger: Optional[Logger] = None
     ) -> list[Path]:
+
+        """
+        Discover mods in the providen mods directory
+
+        Parameters:
+            mods_dir (Path): Path to the mods directory
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            list[Path]: List with all jar files paths located
+        """
+
         mods = self._fs.get_mods(mods_dir, logger=logger)
         if logger:
             logger.info(
@@ -51,6 +77,18 @@ class Builder:
     def build_hash_index(
         self, mods: list[Path], logger: Optional[Logger] = None
     ) -> dict[str, Path]:
+
+        """
+        Builds a dictionary with hashes as keys and paths as values
+
+        Parameters:
+            mods (list[Path]): List with the paths to the mods (jar files)
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            dict[str, Path]: List with all jar files paths located
+        """
+
         index = self._fs.build_hash_index(mods, logger=logger)
         if logger:
             logger.info("Hash index built", context={"count": str(len(index))})
@@ -59,6 +97,18 @@ class Builder:
     def resolve_mods(
         self, hash_index: dict[str, Path], logger: Optional[Logger] = None
     ) -> list[Mod]:
+
+        """
+        Resolves a list of hashes and returns mod objects
+
+        Parameters:
+            hash_index (dict[str, Path]):Dictionary with hashes as Keys and paths to the files as values
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            list[Mod]: List with all the resolved mods
+        """
+
         mods = self._modrinth.resolve_mods(hash_index, logger=logger)
         if logger:
             logger.info("Mods resolved", context={"count": str(len(mods))})
@@ -67,6 +117,17 @@ class Builder:
     def get_common_compatibility(
         self, mods: list[Mod]
     ) -> tuple[set[str], set[str]]:
+
+        """
+        Computes the common Minecraft versions and loaders across mods
+
+        Parameters:
+            mods (list[Mod]): List of mods to analyze
+
+        Returns:
+            tuple[set[str], set[str]]: Common versions set and common loaders set
+        """
+
         if not mods:
             return set(), set()
 
@@ -80,15 +141,54 @@ class Builder:
         return common_versions, common_loaders
 
     def get_unique_compatibility(self, mods: list[Mod]) -> tuple[str, str]:
+
+        """
+        Picks a single Minecraft version and loader compatible with all mods
+
+        Parameters:
+            mods (list[Mod]): List of mods to analyze
+
+        Returns:
+            tuple[str, str]: Selected Minecraft version and loader
+        """
+
         common_versions, common_loaders = self.get_common_compatibility(mods)
         return self._pick_version(common_versions), self._pick_loader(common_loaders)
 
     def _pick_version(self, versions: set[str]) -> str:
+
+        """
+        Picks the newest Minecraft version from a set
+
+        Parameters:
+            versions (set[str]): Available Minecraft versions
+
+        Returns:
+            str: Selected Minecraft version
+
+        Raises:
+            RuntimeError: if the set is empty
+        """
+
         if not versions:
             raise RuntimeError("No compatible versions found")
         return sorted(versions, key=lambda v: [int(p) for p in v.split(".") if p.isdigit()])[-1]
 
     def _pick_loader(self, loaders: set[str]) -> str:
+
+        """
+        Picks a preferred loader from a set
+
+        Parameters:
+            loaders (set[str]): Available Minecraft loaders
+
+        Returns:
+            str: Selected Minecraft loader
+
+        Raises:
+            RuntimeError: if the set is empty
+        """
+
         if not loaders:
             raise RuntimeError("No compatible loaders found")
         if "fabric" in loaders:
@@ -96,9 +196,31 @@ class Builder:
         return sorted(loaders)[0]
 
     def drop_dependencies(self, mods: list[Mod]) -> list[Mod]:
+
+        """
+        Filters out library/dependency mods from a list
+
+        Parameters:
+            mods (list[Mod]): List of mods to filter
+
+        Returns:
+            list[Mod]: Mods that are not libraries
+        """
+
         return [mod for mod in mods if not mod.is_library]
 
     def classify_mods(self, mods: list[Mod]) -> tuple[list[Mod], list[Mod]]:
+
+        """
+        Splits mods into server and client seed lists
+
+        Parameters:
+            mods (list[Mod]): List of mods to classify
+
+        Returns:
+            tuple[list[Mod], list[Mod]]: Server seed and client seed lists
+        """
+
         server_seed: list[Mod] = []
         client_seed: list[Mod] = []
 
@@ -114,6 +236,18 @@ class Builder:
     def _get_dependency(
         self, dep: Dependency, logger: Optional[Logger] = None
     ) -> Mod:
+
+        """
+        Resolves a dependency to a Mod object using Modrinth
+
+        Parameters:
+            dep (Dependency): Dependency object to resolve
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            Mod: Resolved dependency mod
+        """
+
         project_data = self._modrinth.get_project(dep.project_id, logger=logger)
         version_data = self._modrinth.get_version(dep.version_id, logger=logger)
         return Mod.from_modrinth(
@@ -128,6 +262,21 @@ class Builder:
         target_loader: Optional[str] = None,
         logger: Optional[Logger] = None,
     ) -> tuple[list[Mod], dict[str, set[str]]]:
+
+        """
+        Resolves required dependencies for a seed set of mods
+
+        Parameters:
+            seed (list[Mod]): Seed mods to expand dependencies from
+            all_mods (list[Mod]): Known mods to use before fetching
+            target_version (Optional[str]): Target Minecraft version
+            target_loader (Optional[str]): Target Minecraft loader
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            tuple[list[Mod], dict[str, set[str]]]: Full mod list and dependency map
+        """
+
         by_project = {mod.project_id: mod for mod in all_mods}
 
         if logger:
@@ -220,6 +369,23 @@ class Builder:
         mods: list[Mod],
         logger: Optional[Logger] = None,
     ) -> Manifest:
+
+        """
+        Builds a manifest object from pack metadata and mods
+
+        Parameters:
+            name (str): Pack name
+            version (str): Pack version
+            side (str): Pack side (client or server)
+            mc_version (str): Minecraft version
+            mc_loader (str): Minecraft loader
+            mods (list[Mod]): Mods to include in the manifest
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            Manifest: Created manifest object
+        """
+
         if logger:
             logger.info(
                 "Creating manifest",
@@ -248,6 +414,20 @@ class Builder:
         output_dir: Path,
         logger: Optional[Logger] = None,
     ) -> ExportResult:
+
+        """
+        Exports a manifest to a pack directory with mods and manifest.json
+
+        Parameters:
+            manifest (Manifest): Manifest object to export
+            src_dir (Path): Directory containing local mods
+            output_dir (Path): Base output directory
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            ExportResult: Export metadata and exported mods
+        """
+
         result = ExportResult()
         result.mods = manifest.mods
 
@@ -280,7 +460,8 @@ class Builder:
                 dst = mods_dir / mod.file_name
                 self._fs.copy_mod(src, dst, logger=logger)
                 result.exported_mods.append(mod)
-            elif self._modrinth.download_mod(mod, mods_dir, logger=logger):
+            else:
+                self._modrinth.download_mod(mod, mods_dir, logger=logger)
                 result.exported_mods.append(mod)
 
         if self._fs.write_manifest(manifest, output_dir, logger=logger):
@@ -301,6 +482,19 @@ class Builder:
         output_path: Path,
         logger: Optional[Logger] = None,
     ) -> bool:
+
+        """
+        Writes a manifest to disk
+
+        Parameters:
+            manifest (Manifest): Manifest object to save
+            output_path (Path): Output path for the manifest
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            bool: True if the manifest was written
+        """
+
         return self._fs.write_manifest(manifest, output_path, logger=logger)
 
     def validate(
@@ -310,6 +504,19 @@ class Builder:
         src_dir: Path,
         logger: Optional[Logger] = None,
     ) -> ValidationResult:
+
+        """
+        Validates that a manifest matches the mods on disk
+
+        Parameters:
+            manifest_path (Path): Path to the manifest.json file
+            src_dir (Path): Base source directory containing exported packs
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            ValidationResult: Missing, extra, and mismatched mods
+        """
+
         manifest = self._fs.read_manifest(manifest_path, logger=logger)
         src_dir = (
             src_dir
@@ -360,6 +567,19 @@ class Builder:
         output_dir: Path,
         logger: Optional[Logger] = None,
     ) -> BuildResult:
+
+        """
+        Builds a modpack by downloading missing or mismatched mods
+
+        Parameters:
+            manifest_path (Path): Path to the manifest.json file
+            output_dir (Path): Base output directory
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            BuildResult: Build metadata and downloaded mods
+        """
+
         result = BuildResult()
 
         manifest = self._fs.read_manifest(manifest_path, logger=logger)
@@ -392,8 +612,8 @@ class Builder:
                 if self._fs.sha1(mod_path, logger=logger) == mod.hash:
                     continue
 
-            if self._modrinth.download_mod(mod, mods_out, logger=logger):
-                result.downloaded_mods.append(mod)
+            self._modrinth.download_mod(mod, mods_out, logger=logger)
+            result.downloaded_mods.append(mod)
 
         if logger:
             logger.info(
