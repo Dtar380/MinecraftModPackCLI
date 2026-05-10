@@ -1,0 +1,21 @@
+name: Automate Issues
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  automated-issue:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      # SetUp python
+      - name: Issue Automation
+        uses: Dtar380/AutomaticIssue@v2.0.0
+        with:
+          token: ${{ secrets.GH_API_TOKEN }}
+          repo: ${{ github.repository }}
