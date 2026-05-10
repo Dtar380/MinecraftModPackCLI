@@ -25,7 +25,7 @@ class APP(Group):
 
     cwd: Path = Path.cwd()
 
-    def __init__(self) -> None:
+    def __init__(self, *args, **kwargs) -> None:  # pylint: disable=W0613
         super().__init__()
         self.__register_commands()
 
@@ -62,7 +62,7 @@ class APP(Group):
     def _logger(self, command: str, verbose: bool) -> Logger:
         level = LogLevel.DEBUG if verbose else LogLevel.INFO
         target = LogTarget.BOTH if verbose else LogTarget.FILE
-        ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+        ts = datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
         return Logger(
             level=level,
             target=target,
@@ -74,7 +74,14 @@ class APP(Group):
         current_frame = inspect.currentframe()
         name = current_frame.f_code.co_name if current_frame else ""
         help_text = "Export the modpack and create a manifest"
-        params = [modpack_param, src_param, version_param, server_param, client_param, verbose_param]
+        params = [
+            modpack_param,
+            src_param,
+            version_param,
+            server_param,
+            client_param,
+            verbose_param,
+        ]
 
         def callback(
             modpack: str,
@@ -87,105 +94,153 @@ class APP(Group):
             logger = self._logger("export", verbose)
             mods_dir = self._mods_dir(src)
 
+            logger.info("Command start", context={"command": "export"})
+            logger.debug(
+                "Input params",
+                context={
+                    "modpack": modpack,
+                    "src": str(src),
+                    "version": version,
+                    "server": str(server),
+                    "client": str(client),
+                },
+            )
+            logger.debug("Mods dir resolved", context={"mods_dir": str(mods_dir)})
+
             if not server and not client:
                 server = True
                 client = True
 
             self.ui.stage("Scanning mods")
-            mod_files = self.builder.discover_mods(mods_dir)
+            mod_files = self.builder.discover_mods(mods_dir, logger=logger)
             if not mod_files:
                 self.ui.fail("Scanning mods")
                 self.ui.error("No mods found")
                 logger.error("No mods found")
                 return 1
             self.ui.done("Scanning mods")
+            logger.info("Mods discovered", context={"count": str(len(mod_files))})
 
             self.ui.stage("Resolving mods")
-            hash_index = self.builder.build_hash_index(mod_files)
-            mods = self.builder.resolve_mods(hash_index)
+            hash_index = self.builder.build_hash_index(mod_files, logger=logger)
+            all_mods = self.builder.resolve_mods(hash_index, logger=logger)
             self.ui.done("Resolving mods")
-            logger.info("Mods resolved", context={"count": str(len(mods))})
+            logger.info("Mods resolved", context={"count": str(len(all_mods))})
 
-            mods = self.builder.drop_dependencies(mods)
-            server_seed, client_seed = self.builder.classify_mods(mods)
+            seed_mods = self.builder.drop_dependencies(all_mods)
+            server_seed, client_seed = self.builder.classify_mods(seed_mods)
+            logger.info("Dependencies dropped", context={"remaining": str(len(seed_mods))})
+            logger.info(
+                "Seeds classified",
+                context={
+                    "server_seed": str(len(server_seed)),
+                    "client_seed": str(len(client_seed)),
+                },
+            )
 
             if server:
-                self.ui.stage("Resolving server dependencies")
-                server_pack, _ = self.builder.resolve_dependencies(server_seed, mods)
-                self.ui.done("Resolving server dependencies")
-
-                if not server_pack:
-                    self.ui.warn("No server mods to export")
-                else:
-                    server_manifest = self.builder.create_manifest(
-                        name=f"{modpack} [server]",
-                        version=version,
-                        side="server",
-                        mc_version=server_pack[0].mc_version,
-                        mc_loader=server_pack[0].mc_loader,
-                        mods=server_pack,
-                    )
-
-                    self.ui.stage("Exporting server pack")
-                    result = self.builder.export(
-                        manifest=server_manifest,
-                        src_dir=mods_dir,
-                        output_dir=self.cwd,
-                    )
-                    self.ui.done("Exporting server pack")
-
-                    expected = len(result.mods)
-                    actual = len(result.exported_mods)
-                    if actual < expected:
-                        self.ui.warn(f"Server export incomplete: expected={expected} exported={actual}")
-                        logger.warning(
-                            "Server export incomplete",
-                            context={"expected": str(expected), "exported": str(actual)},
-                        )
-                    else:
-                        self.ui.success(f"Server export complete: {actual} mods")
+                self._export_side(
+                    side="server",
+                    modpack=modpack,
+                    version=version,
+                    seed=server_seed,
+                    all_mods=all_mods,
+                    mods_dir=mods_dir,
+                    logger=logger,
+                )
 
             if client:
-                self.ui.stage("Resolving client dependencies")
-                client_pack, _ = self.builder.resolve_dependencies(client_seed, mods)
-                self.ui.done("Resolving client dependencies")
-
-                if not client_pack:
-                    self.ui.warn("No client mods to export")
-                else:
-                    client_manifest = self.builder.create_manifest(
-                        name=f"{modpack} [client]",
-                        version=version,
-                        side="client",
-                        mc_version=client_pack[0].mc_version,
-                        mc_loader=client_pack[0].mc_loader,
-                        mods=client_pack,
-                    )
-
-                    self.ui.stage("Exporting client pack")
-                    result = self.builder.export(
-                        manifest=client_manifest,
-                        src_dir=mods_dir,
-                        output_dir=self.cwd,
-                    )
-                    self.ui.done("Exporting client pack")
-
-                    expected = len(result.mods)
-                    actual = len(result.exported_mods)
-                    if actual < expected:
-                        self.ui.warn(f"Client export incomplete: expected={expected} exported={actual}")
-                        logger.warning(
-                            "Client export incomplete",
-                            context={"expected": str(expected), "exported": str(actual)},
-                        )
-                    else:
-                        self.ui.success(f"Client export complete: {actual} mods")
+                self._export_side(
+                    side="client",
+                    modpack=modpack,
+                    version=version,
+                    seed=client_seed,
+                    all_mods=all_mods,
+                    mods_dir=mods_dir,
+                    logger=logger,
+                )
 
             return 0
 
         return Command(
             name=name, help=help_text, callback=callback, params=params
         )
+
+    def _export_side(
+        self,
+        *,
+        side: str,
+        modpack: str,
+        version: str,
+        seed: list,
+        all_mods: list,
+        mods_dir: Path,
+        logger: Logger,
+    ) -> None:
+        side_title = side.capitalize()
+
+        if not seed:
+            self.ui.warn(f"No {side} mods to export")
+            return
+
+        target_version, target_loader = self.builder.get_unique_compatibility(seed)
+        self.ui.stage(f"Resolving {side} dependencies")
+        pack, _ = self.builder.resolve_dependencies(
+            seed,
+            all_mods,
+            target_version=target_version,
+            target_loader=target_loader,
+            logger=logger,
+        )
+        self.ui.done(f"Resolving {side} dependencies")
+        logger.info(
+            f"{side_title} dependencies resolved",
+            context={"pack": str(len(pack))},
+        )
+
+        if not pack:
+            self.ui.warn(f"No {side} mods to export")
+            return
+
+        pack_version, pack_loader = self.builder.get_unique_compatibility(pack)
+        manifest = self.builder.create_manifest(
+            name=f"{modpack} [{side}]",
+            version=version,
+            side=side,
+            mc_version=pack_version,
+            mc_loader=pack_loader,
+            mods=pack,
+        )
+
+        self.ui.stage(f"Exporting {side} pack")
+        result = self.builder.export(
+            manifest=manifest,
+            src_dir=mods_dir,
+            output_dir=self.cwd,
+            logger=logger,
+        )
+        self.ui.done(f"Exporting {side} pack")
+
+        logger.info(
+            f"{side_title} export result",
+            context={
+                "expected": str(len(result.mods)),
+                "exported": str(len(result.exported_mods)),
+            },
+        )
+
+        expected = len(result.mods)
+        actual = len(result.exported_mods)
+        if actual < expected:
+            self.ui.warn(
+                f"{side_title} export incomplete: expected={expected} exported={actual}"
+            )
+            logger.warning(
+                f"{side_title} export incomplete",
+                context={"expected": str(expected), "exported": str(actual)},
+            )
+        else:
+            self.ui.success(f"{side_title} export complete: {actual} mods")
 
     def manifest(self) -> Command:
 
@@ -204,29 +259,60 @@ class APP(Group):
             mods_dir = self._mods_dir(src)
             output_dir = mods_dir.parent
 
+            logger.info("Command start", context={"command": "manifest"})
+            logger.debug(
+                "Input params",
+                context={
+                    "modpack": modpack,
+                    "src": str(src),
+                    "version": version,
+                },
+            )
+            logger.debug(
+                "Paths resolved",
+                context={
+                    "mods_dir": str(mods_dir),
+                    "output_dir": str(output_dir),
+                },
+            )
+
             self.ui.stage("Scanning mods")
-            mod_files = self.builder.discover_mods(mods_dir)
+            mod_files = self.builder.discover_mods(mods_dir, logger=logger)
             if not mod_files:
                 self.ui.fail("Scanning mods")
                 self.ui.error("No mods found")
                 logger.error("No mods found")
                 return 1
             self.ui.done("Scanning mods")
+            logger.info("Mods discovered", context={"count": str(len(mod_files))})
 
             self.ui.stage("Resolving mods")
-            hash_index = self.builder.build_hash_index(mod_files)
-            mods = self.builder.resolve_mods(hash_index)
+            hash_index = self.builder.build_hash_index(mod_files, logger=logger)
+            all_mods = self.builder.resolve_mods(hash_index, logger=logger)
             self.ui.done("Resolving mods")
+            logger.info("Mods resolved", context={"count": str(len(all_mods))})
 
-            mods = self.builder.drop_dependencies(mods)
-            server_seed, client_seed = self.builder.classify_mods(mods)
+            seed_mods = self.builder.drop_dependencies(all_mods)
+            server_seed, client_seed = self.builder.classify_mods(seed_mods)
             combined_seed = {m.project_id: m for m in (server_seed + client_seed)}
+            seed_for_manifest = list(combined_seed.values()) or seed_mods or all_mods
+            manifest_version, manifest_loader = self.builder.get_unique_compatibility(
+                seed_for_manifest
+            )
 
             self.ui.stage("Resolving dependencies")
             full_pack, _ = self.builder.resolve_dependencies(
-                list(combined_seed.values()), mods
+                seed_for_manifest,
+                all_mods,
+                target_version=manifest_version,
+                target_loader=manifest_loader,
+                logger=logger,
             )
             self.ui.done("Resolving dependencies")
+            logger.info(
+                "Dependencies resolved",
+                context={"pack": str(len(full_pack))},
+            )
 
             if not full_pack:
                 self.ui.error("No mods to include in manifest")
@@ -237,15 +323,21 @@ class APP(Group):
                 name=modpack,
                 version=version,
                 side="local",
-                mc_version=full_pack[0].mc_version,
-                mc_loader=full_pack[0].mc_loader,
+                mc_version=manifest_version,
+                mc_loader=manifest_loader,
                 mods=full_pack,
             )
 
             self.ui.stage("Writing manifest")
-            self.builder.save_manifest(manifest=manifest_obj, output_path=output_dir)
+            self.builder.save_manifest(
+                manifest=manifest_obj, output_path=output_dir, logger=logger
+            )
             self.ui.done("Writing manifest")
             self.ui.success("Manifest created")
+            logger.info(
+                "Manifest saved",
+                context={"path": str(output_dir / "manifest.json")},
+            )
 
             return 0
 
@@ -263,6 +355,8 @@ class APP(Group):
         def callback(src: Path, verbose: bool = False) -> int:
             logger = self._logger("validate", verbose)
 
+            logger.info("Command start", context={"command": "validate"})
+
             if src.is_dir():
                 manifest_path = src / "manifest.json"
                 base_dir = src
@@ -270,12 +364,30 @@ class APP(Group):
                 manifest_path = src
                 base_dir = src.parent.parent.parent.parent
 
+            logger.debug(
+                "Validation paths",
+                context={
+                    "manifest": str(manifest_path),
+                    "base_dir": str(base_dir),
+                },
+            )
+
             self.ui.stage("Validating manifest")
             result = self.builder.validate(
                 manifest_path=manifest_path,
                 src_dir=base_dir,
+                logger=logger,
             )
             self.ui.done("Validating manifest")
+
+            logger.info(
+                "Validation result",
+                context={
+                    "missing": str(len(result.missing)),
+                    "mismatched": str(len(result.mismatched)),
+                    "extra": str(len(result.extra)),
+                },
+            )
 
             if result.missing or result.mismatched:
                 self.ui.warn(f"Missing: {len(result.missing)}")
@@ -308,12 +420,24 @@ class APP(Group):
         def callback(manifest: Path, verbose: bool = False) -> int:
             logger = self._logger("build", verbose)
 
+            logger.info("Command start", context={"command": "build"})
+            logger.debug("Manifest path", context={"manifest": str(manifest)})
+
             self.ui.stage("Building modpack")
             result = self.builder.build(
                 manifest_path=manifest,
                 output_dir=self.cwd,
+                logger=logger,
             )
             self.ui.done("Building modpack")
+
+            logger.info(
+                "Build result",
+                context={
+                    "expected": str(len(result.mods)),
+                    "downloaded": str(len(result.downloaded_mods)),
+                },
+            )
 
             expected = len(result.mods)
             actual = len(result.downloaded_mods)

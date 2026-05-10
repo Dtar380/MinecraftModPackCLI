@@ -21,14 +21,30 @@ class Manifest:
 
     mods: list[Mod] = field(default_factory=list)
 
+    @staticmethod
+    def _pick_version(versions: list[str]) -> str:
+        if not versions:
+            raise RuntimeError("No compatible versions found")
+        return sorted(versions, key=lambda v: [int(p) for p in v.split(".") if p.isdigit()])[-1]
+
+    @staticmethod
+    def _pick_loader(loaders: list[str]) -> str:
+        if not loaders:
+            raise RuntimeError("No compatible loaders found")
+        if "fabric" in loaders:
+            return "fabric"
+        return sorted(loaders)[0]
+
     @classmethod
     def from_dict(cls, manifest: dict) -> Manifest:
         return cls(
             name=manifest["name"],
             version=manifest["version"],
             side=manifest["side"],
-            mc_version=manifest["mc_version"],
-            mc_loader=manifest["mc_loader"],
+            mc_version=manifest.get("mc_version")
+            or cls._pick_version(manifest.get("mc_versions", [])),
+            mc_loader=manifest.get("mc_loader")
+            or cls._pick_loader(manifest.get("mc_loaders", [])),
             created_at=datetime.fromisoformat(manifest["created_at"]),
             mods=[Mod.from_dict(mod) for mod in manifest.get("mods", [])],
         )

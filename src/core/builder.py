@@ -7,6 +7,7 @@ from typing import Optional
 
 from ..models import Dependency, Manifest, Mod
 from ..services import FilesystemService, ModrinthService
+from ..utils.logging import Logger
 
 
 @dataclass(slots=True)
@@ -36,14 +37,51 @@ class Builder:
         self._modrinth = ModrinthService()
         self._now = datetime.now
 
-    def discover_mods(self, mods_dir: Path) -> list[Path]:
-        return self._fs.get_mods(mods_dir)
+    def discover_mods(
+        self, mods_dir: Path, logger: Optional[Logger] = None
+    ) -> list[Path]:
+        return self._fs.get_mods(mods_dir, logger=logger)
 
-    def build_hash_index(self, mods: list[Path]) -> dict[str, Path]:
-        return self._fs.build_hash_index(mods)
+    def build_hash_index(
+        self, mods: list[Path], logger: Optional[Logger] = None
+    ) -> dict[str, Path]:
+        return self._fs.build_hash_index(mods, logger=logger)
 
-    def resolve_mods(self, hash_index: dict[str, Path]) -> list[Mod]:
-        return self._modrinth.resolve_mods(hash_index)
+    def resolve_mods(
+        self, hash_index: dict[str, Path], logger: Optional[Logger] = None
+    ) -> list[Mod]:
+        return self._modrinth.resolve_mods(hash_index, logger=logger)
+
+    def get_common_compatibility(
+        self, mods: list[Mod]
+    ) -> tuple[set[str], set[str]]:
+        if not mods:
+            return set(), set()
+
+        common_versions = set(mods[0].mc_versions)
+        common_loaders = set(mods[0].mc_loaders)
+
+        for mod in mods[1:]:
+            common_versions &= mod.mc_versions
+            common_loaders &= mod.mc_loaders
+
+        return common_versions, common_loaders
+
+    def get_unique_compatibility(self, mods: list[Mod]) -> tuple[str, str]:
+        common_versions, common_loaders = self.get_common_compatibility(mods)
+        return self._pick_version(common_versions), self._pick_loader(common_loaders)
+
+    def _pick_version(self, versions: set[str]) -> str:
+        if not versions:
+            raise RuntimeError("No compatible versions found")
+        return sorted(versions, key=lambda v: [int(p) for p in v.split(".") if p.isdigit()])[-1]
+
+    def _pick_loader(self, loaders: set[str]) -> str:
+        if not loaders:
+            raise RuntimeError("No compatible loaders found")
+        if "fabric" in loaders:
+            return "fabric"
+        return sorted(loaders)[0]
 
     def drop_dependencies(self, mods: list[Mod]) -> list[Mod]:
         return [mod for mod in mods if not mod.is_library]
@@ -61,15 +99,31 @@ class Builder:
 
         return server_seed, client_seed
 
-    def _get_dependency(self, dep: Dependency) -> Mod:
-        project_data = self._modrinth.get_project(dep.project_id)
-        version_data = self._modrinth.get_version(dep.version_id)
-        return Mod.from_modrinth(project_data, version_data, version_data["files"][0]["filename"])
+    def _get_dependency(
+        self, dep: Dependency, logger: Optional[Logger] = None
+    ) -> Mod:
+        project_data = self._modrinth.get_project(dep.project_id, logger=logger)
+        version_data = self._modrinth.get_version(dep.version_id, logger=logger)
+        return Mod.from_modrinth(
+            project_data, version_data, version_data["files"][0]["filename"]
+        )
 
     def resolve_dependencies(
-        self, seed: list[Mod], all_mods: list[Mod]
+        self,
+        seed: list[Mod],
+        all_mods: list[Mod],
+        target_version: Optional[str] = None,
+        target_loader: Optional[str] = None,
+        logger: Optional[Logger] = None,
     ) -> tuple[list[Mod], dict[str, set[str]]]:
         by_project = {mod.project_id: mod for mod in all_mods}
+
+        if target_version is None or target_loader is None:
+            common_versions, common_loaders = self.get_common_compatibility(seed)
+            if target_version is None and common_versions:
+                target_version = self._pick_version(common_versions)
+            if target_loader is None and common_loaders:
+                target_loader = self._pick_loader(common_loaders)
 
         expanded = {mod.project_id for mod in seed}
         dependency_map: dict[str, set[str]] = {}
@@ -96,7 +150,27 @@ class Builder:
                     queue.append(by_project[dep_id])
                     continue
 
-                dep_mod = self._get_dependency(dep)
+                if not dep.version_id:
+                    dep_version = target_version or self._pick_version(mod.mc_versions)
+                    dep_loader = target_loader or self._pick_loader(mod.mc_loaders)
+                    versions = self._modrinth.get_project_versions(
+                        dep.project_id,
+                        dep_version,
+                        dep_loader,
+                        logger=logger,
+                    )
+                    if not versions:
+                        raise RuntimeError(
+                            "No compatible versions for dependency "
+                            f"{dep.project_id} ({mod.mc_loaders} {mod.mc_versions})"
+                        )
+                    dep = Dependency(
+                        project_id=dep.project_id,
+                        version_id=versions[0]["id"],
+                        dependency_type=dep.dependency_type,
+                    )
+
+                dep_mod = self._get_dependency(dep, logger=logger)
                 by_project[dep_id] = dep_mod
                 queue.append(dep_mod)
 
@@ -130,7 +204,8 @@ class Builder:
         *,
         manifest: Manifest,
         src_dir: Path,
-        output_dir: Path
+        output_dir: Path,
+        logger: Optional[Logger] = None,
     ) -> ExportResult:
         result = ExportResult()
         result.mods = manifest.mods
@@ -150,23 +225,33 @@ class Builder:
 
             if src.exists():
                 dst = mods_dir / mod.file_name
-                self._fs.copy_mod(src, dst)
+                self._fs.copy_mod(src, dst, logger=logger)
                 result.exported_mods.append(mod)
-            elif self._modrinth.download_mod(mod, mods_dir):
+            elif self._modrinth.download_mod(mod, mods_dir, logger=logger):
                 result.exported_mods.append(mod)
 
-        if self._fs.write_manifest(manifest, output_dir):
+        if self._fs.write_manifest(manifest, output_dir, logger=logger):
             result.manifest = manifest
 
         return result
 
-    def save_manifest(self, *, manifest: Manifest, output_path: Path) -> bool:
-        return self._fs.write_manifest(manifest, output_path)
+    def save_manifest(
+        self,
+        *,
+        manifest: Manifest,
+        output_path: Path,
+        logger: Optional[Logger] = None,
+    ) -> bool:
+        return self._fs.write_manifest(manifest, output_path, logger=logger)
 
     def validate(
-        self, *, manifest_path: Path, src_dir: Path
+        self,
+        *,
+        manifest_path: Path,
+        src_dir: Path,
+        logger: Optional[Logger] = None,
     ) -> ValidationResult:
-        manifest = self._fs.read_manifest(manifest_path)
+        manifest = self._fs.read_manifest(manifest_path, logger=logger)
         src_dir = (
             src_dir
             / manifest.name
@@ -177,7 +262,9 @@ class Builder:
 
         manifest_mods = {mod.file_name for mod in manifest.mods}
         manifest_hashes = {mod.hash for mod in manifest.mods}
-        on_disk_mods = {file.name for file in self._fs.get_mods(src_dir)}
+        on_disk_mods = {
+            file.name for file in self._fs.get_mods(src_dir, logger=logger)
+        }
 
         missing = []
         extra = []
@@ -192,7 +279,7 @@ class Builder:
             if mod not in manifest_mods:
                 extra.append(mod)
                 continue
-            if self._fs.sha1(src_dir / mod) not in manifest_hashes:
+            if self._fs.sha1(src_dir / mod, logger=logger) not in manifest_hashes:
                 mismatched.append(mod)
 
         return ValidationResult(
@@ -201,10 +288,16 @@ class Builder:
             mismatched=mismatched
         )
 
-    def build(self, *, manifest_path: Path, output_dir: Path) -> BuildResult:
+    def build(
+        self,
+        *,
+        manifest_path: Path,
+        output_dir: Path,
+        logger: Optional[Logger] = None,
+    ) -> BuildResult:
         result = BuildResult()
 
-        manifest = self._fs.read_manifest(manifest_path)
+        manifest = self._fs.read_manifest(manifest_path, logger=logger)
         result.mods = manifest.mods
 
         mods_out = (
@@ -217,7 +310,7 @@ class Builder:
         mods_out.mkdir(parents=True, exist_ok=True)
 
         for mod in manifest.mods:
-            if self._modrinth.download_mod(mod, mods_out):
+            if self._modrinth.download_mod(mod, mods_out, logger=logger):
                 result.downloaded_mods.append(mod)
 
         return result

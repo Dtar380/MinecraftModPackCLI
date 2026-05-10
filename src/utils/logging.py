@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import IntEnum, Enum
 from pathlib import Path
 from typing import Any, Optional
 
 
-class LogLevel(str, Enum):
-    DEBUG = "debug"
-    INFO = "info"
-    WARNING = "warning"
-    ERROR = "error"
+class LogLevel(IntEnum):
+    DEBUG = 10
+    INFO = 20
+    WARNING = 30
+    ERROR = 40
 
 
 class LogTarget(str, Enum):
@@ -40,6 +40,8 @@ class Logger:
         self.level = level
         self.target = target
         self.file_path = file_path or None
+        if self.file_path:
+            self.file_path.touch(exist_ok=True)
 
     def debug(
         self, message: str, *, context: Optional[dict[str, Any]] = None
@@ -49,12 +51,12 @@ class Logger:
     def info(
         self, message: str, *, context: Optional[dict[str, Any]] = None
     ) -> None:
-        self._log(LogLevel.DEBUG, message, context=context)
+        self._log(LogLevel.INFO, message, context=context)
 
     def warning(
         self, message: str, *, context: Optional[dict[str, Any]] = None
     ) -> None:
-        self._log(LogLevel.DEBUG, message, context=context)
+        self._log(LogLevel.WARNING, message, context=context)
 
     def error(
         self,
@@ -63,7 +65,7 @@ class Logger:
         context: Optional[dict[str, Any]] = None,
         exc: Optional[Exception] = None,
     ) -> None:
-        self._log(LogLevel.DEBUG, message, context=context, exc=exc)
+        self._log(LogLevel.ERROR, message, context=context, exc=exc)
 
     def _log(
         self,

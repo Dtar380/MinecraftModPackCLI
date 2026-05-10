@@ -11,8 +11,8 @@ class Mod:
     name: str
     hash: str
 
-    mc_version: str
-    mc_loader: str
+    mc_versions: set[str]
+    mc_loaders: set[str]
 
     project_id: str
     version_id: str
@@ -34,8 +34,8 @@ class Mod:
         return cls(
             name=project_data["title"],
             hash=version_data["files"][0]["hashes"]["sha1"],
-            mc_version=version_data["game_versions"][0],
-            mc_loader=version_data["loaders"][0],
+            mc_versions=set(version_data.get("game_versions", [])),
+            mc_loaders=set(version_data.get("loaders", [])),
             project_id=project_data["id"],
             version_id=version_data["id"],
             client_side=project_data["client_side"],
@@ -54,8 +54,8 @@ class Mod:
         return cls(
             name=mod["name"],
             hash=mod["hash"],
-            mc_version=mod["mc_version"],
-            mc_loader=mod["mc_loader"],
+            mc_versions=set(mod.get("mc_versions", [])),
+            mc_loaders=set(mod.get("mc_loaders", [])),
             project_id=mod["project_id"],
             version_id=mod["version_id"],
             client_side=mod["client_side"],
@@ -89,8 +89,8 @@ class Mod:
         return {
             "name": self.name,
             "hash": self.hash,
-            "mc_version": self.mc_version,
-            "mc_loader": self.mc_loader,
+            "mc_versions": sorted(self.mc_versions),
+            "mc_loaders": sorted(self.mc_loaders),
             "project_id": self.project_id,
             "version_id": self.version_id,
             "client_side": self.client_side,
