@@ -1,10 +1,17 @@
+# ===============================================
+#  IMPORTS
+# ===============================================
 from __future__ import annotations
 
+# === BUILT IN ===
 from dataclasses import dataclass, field
 
+# === LOCAL ===
 from .dependency import Dependency
 
-
+# ===============================================
+#  MOD
+# ===============================================
 @dataclass(slots=True)
 class Mod:
 
@@ -31,6 +38,16 @@ class Mod:
     def from_modrinth(
         cls, project_data: dict, version_data: dict, file_name: str
     ) -> Mod:
+
+        """
+        Builds a Mod object from a modrinth retrieved serialized project and version data
+
+        Parameters:
+            project_data (dict): Dict with the project data
+            version_data (dict): Dict with the version data
+            file_name (str): String with the filename of the mod
+        """
+
         return cls(
             name=project_data["title"],
             hash=version_data["files"][0]["hashes"]["sha1"],
@@ -51,6 +68,17 @@ class Mod:
 
     @classmethod
     def from_dict(cls, mod: dict) -> Mod:
+
+        """
+        Creates a Mod object from a dict
+
+        Parameters:
+            mod (dict): dict containing data for a mod
+
+        Returns:
+            Mod: Mod object
+        """
+
         return cls(
             name=mod["name"],
             hash=mod["hash"],
@@ -86,6 +114,14 @@ class Mod:
         return f"{self.name}: version_id={self.version_id}"
 
     def to_dict(self) -> dict:
+
+        """
+        Gives a dict with the data of the Mod object
+
+        Returns:
+            dict: Dict with all the Mod data
+        """
+
         return {
             "name": self.name,
             "hash": self.hash,
