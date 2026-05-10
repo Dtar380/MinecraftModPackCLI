@@ -16,6 +16,10 @@ from .mod import Mod
 @dataclass(slots=True)
 class Manifest:
 
+    """
+    Represents a modpack manifest and its metadata
+    """
+
     name: str
     version: str
 

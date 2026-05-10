@@ -15,6 +15,10 @@ from .dependency import Dependency
 @dataclass(slots=True)
 class Mod:
 
+    """
+    Represents a Modrinth mod with compatibility metadata
+    """
+
     name: str
     hash: str
 
@@ -99,18 +103,44 @@ class Mod:
 
     @classmethod
     def __is_library(cls, project_data: dict) -> bool:
+
+        """
+        Determines whether a project is classified as a library
+
+        Parameters:
+            project_data (dict): Modrinth project data
+
+        Returns:
+            bool: True when the project is a library
+        """
+
         categories = project_data.get("categories", [])
         return any(c in ["library", "api", "framework"] for c in categories)
 
     @property
     def client_required(self) -> bool:
+
+        """
+        Returns true when the mod supports the client side
+        """
+
         return self.client_side != "unsupported"
 
     @property
     def server_required(self) -> bool:
+
+        """
+        Returns true when the mod requires server installation
+        """
+
         return self.server_side == "required"
 
     def __str__(self) -> str:
+
+        """
+        Returns a readable identifier for the mod
+        """
+
         return f"{self.name}: version_id={self.version_id}"
 
     def to_dict(self) -> dict:

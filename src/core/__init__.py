@@ -1,3 +1,7 @@
+"""
+Core services and orchestration for modpack operations
+"""
+
 # ===============================================
 #  IMPORTS
 # ===============================================

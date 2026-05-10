@@ -1,3 +1,7 @@
+"""
+Click command definitions for the modpack CLI
+"""
+
 # ===============================================
 #  IMPORTS
 # ===============================================
@@ -143,6 +147,22 @@ class APP(Group):
             client: bool = client_param.default,
             verbose: bool = False
         ) -> int:
+
+            """
+            Executes the export command
+
+            Parameters:
+                modpack (str): Modpack name
+                src (Path): Source directory
+                version (str): Modpack version
+                server (bool): Export server side
+                client (bool): Export client side
+                verbose (bool): Verbose logging
+
+            Returns:
+                int: Exit code
+            """
+
             logger = self._logger("export", verbose)
             mods_dir = self._mods_dir(src)
 
@@ -347,6 +367,20 @@ class APP(Group):
             version: str = version_param.default,
             verbose: bool = False,
         ) -> int:
+
+            """
+            Executes the manifest command
+
+            Parameters:
+                modpack (str): Modpack name
+                src (Path): Source directory
+                version (str): Modpack version
+                verbose (bool): Verbose logging
+
+            Returns:
+                int: Exit code
+            """
+
             logger = self._logger("manifest", verbose)
             mods_dir = self._mods_dir(src)
             output_dir = mods_dir.parent
@@ -450,6 +484,18 @@ class APP(Group):
         params = [src_param, verbose_param]
 
         def callback(src: Path, verbose: bool = False) -> int:
+
+            """
+            Executes the validate command
+
+            Parameters:
+                src (Path): Manifest path or pack directory
+                verbose (bool): Verbose logging
+
+            Returns:
+                int: Exit code
+            """
+
             logger = self._logger("validate", verbose)
 
             logger.info("Command start", context={"command": "validate"})
@@ -525,6 +571,18 @@ class APP(Group):
         params = [manifest_param, verbose_param]
 
         def callback(manifest: Path, verbose: bool = False) -> int:
+
+            """
+            Executes the build command
+
+            Parameters:
+                manifest (Path): Path to manifest.json
+                verbose (bool): Verbose logging
+
+            Returns:
+                int: Exit code
+            """
+
             logger = self._logger("build", verbose)
 
             logger.info("Command start", context={"command": "build"})

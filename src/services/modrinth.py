@@ -1,3 +1,7 @@
+"""
+Modrinth API client for resolving and downloading mods
+"""
+
 # ===============================================
 #  IMPORTS
 # ===============================================
@@ -24,6 +28,11 @@ class ModrinthService:
     BASE_URL = "https://api.modrinth.com/v2"
 
     def __init__(self):
+
+        """
+        Initializes a Modrinth session client
+        """
+
         self.session = requests.Session()
 
     def resolve_hashes(

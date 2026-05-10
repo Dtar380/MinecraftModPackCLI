@@ -1,3 +1,7 @@
+"""
+Service layer integrations for filesystem and Modrinth
+"""
+
 # ===============================================
 #  IMPORTS
 # ===============================================

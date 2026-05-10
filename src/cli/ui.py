@@ -35,9 +35,11 @@ class UI:
     """
 
     def __init__(self) -> None:
+
         """
         Initializes the UI state
         """
+
         self._spinner: Optional[Yaspin] = None
         self._current_stage: Optional[str] = None
 

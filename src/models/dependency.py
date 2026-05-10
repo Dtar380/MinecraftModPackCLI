@@ -12,6 +12,10 @@ from dataclasses import dataclass
 @dataclass(slots=True)
 class Dependency:
 
+    """
+    Represents a dependency entry from Modrinth metadata
+    """
+
     project_id: str
     version_id: str
     dependency_type: str
@@ -37,6 +41,9 @@ class Dependency:
 
     @property
     def is_required(self) -> bool:
+        """
+        Returns true when the dependency is required
+        """
         return self.dependency_type == "required"
 
     def to_dict(self) -> dict:

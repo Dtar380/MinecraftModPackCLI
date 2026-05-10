@@ -1,3 +1,7 @@
+"""
+Filesystem helpers for reading, writing, and hashing modpack files
+"""
+
 # ===============================================
 #  IMPORTS
 # ===============================================
@@ -18,6 +22,10 @@ from ..utils.logging import Logger
 #  FILESYSTEMSERVICE
 # ===============================================
 class FilesystemService:
+
+    """
+    Filesystem operations for mods and manifests
+    """
 
     def get_mods(
         self, mods_dir: Path, logger: Optional[Logger] = None

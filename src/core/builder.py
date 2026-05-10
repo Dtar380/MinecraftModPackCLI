@@ -20,6 +20,11 @@ from ..utils.logging import Logger
 # === EXPORT RESULT ===
 @dataclass(slots=True)
 class ExportResult:
+
+    """
+    Result metadata for an export operation
+    """
+
     mods: list[Mod] = field(default_factory=list)
     exported_mods: list[Mod] = field(default_factory=list)
     manifest: Optional[Manifest] = None
@@ -27,6 +32,11 @@ class ExportResult:
 # === VALIDATION RESULT ===
 @dataclass(slots=True)
 class ValidationResult:
+
+    """
+    Result metadata for a validation operation
+    """
+
     missing: list[str] = field(default_factory=list)
     extra: list[str] = field(default_factory=list)
     mismatched: list[str] = field(default_factory=list)
@@ -34,6 +44,11 @@ class ValidationResult:
 # === BUILD RESULT ===
 @dataclass(slots=True)
 class BuildResult:
+
+    """
+    Result metadata for a build operation
+    """
+
     mods: list[Mod] = field(default_factory=list)
     downloaded_mods: list[Mod] = field(default_factory=list)
 
@@ -47,6 +62,11 @@ class Builder:
     """
 
     def __init__(self) -> None:
+
+        """
+        Initializes service dependencies
+        """
+
         self._fs = FilesystemService()
         self._modrinth = ModrinthService()
         self._now = datetime.now

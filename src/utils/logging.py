@@ -1,3 +1,7 @@
+"""
+Logging utilities for console and file output
+"""
+
 # ===============================================
 #  IMPORTS
 # ===============================================
@@ -14,6 +18,11 @@ from typing import Any, Optional
 #  ENUMS
 # ===============================================
 class LogLevel(IntEnum):
+
+    """
+    Log severity levels
+    """
+
     DEBUG = 10
     INFO = 20
     WARNING = 30
@@ -21,6 +30,11 @@ class LogLevel(IntEnum):
 
 
 class LogTarget(str, Enum):
+
+    """
+    Log output targets
+    """
+
     CONSOLE = "console"
     FILE = "file"
     BOTH = "both"
@@ -30,6 +44,11 @@ class LogTarget(str, Enum):
 # ===============================================
 @dataclass(slots=True)
 class LogRecord:
+
+    """
+    Normalized log record container
+    """
+
     level: LogLevel
     message: str
     time: str
@@ -41,12 +60,26 @@ class LogRecord:
 # ===============================================
 class Logger:
 
+    """
+    Simple logger that writes to console and/or file
+    """
+
     def __init__(
         self,
         level: LogLevel = LogLevel.INFO,
         target: LogTarget = LogTarget.BOTH,
         file_path: Optional[Path] = None
     ) -> None:
+
+        """
+        Initializes the logger
+
+        Parameters:
+            level (LogLevel): Minimum log level
+            target (LogTarget): Output target
+            file_path (Optional[Path]): Optional log file path
+        """
+
         self.level = level
         self.target = target
         self.file_path = file_path or None
@@ -56,16 +89,43 @@ class Logger:
     def debug(
         self, message: str, *, context: Optional[dict[str, Any]] = None
     ) -> None:
+
+        """
+        Writes a debug log entry
+
+        Parameters:
+            message (str): Log message
+            context (Optional[dict[str, Any]]): Context metadata
+        """
+
         self._log(LogLevel.DEBUG, message, context=context)
 
     def info(
         self, message: str, *, context: Optional[dict[str, Any]] = None
     ) -> None:
+
+        """
+        Writes an info log entry
+
+        Parameters:
+            message (str): Log message
+            context (Optional[dict[str, Any]]): Context metadata
+        """
+
         self._log(LogLevel.INFO, message, context=context)
 
     def warning(
         self, message: str, *, context: Optional[dict[str, Any]] = None
     ) -> None:
+
+        """
+        Writes a warning log entry
+
+        Parameters:
+            message (str): Log message
+            context (Optional[dict[str, Any]]): Context metadata
+        """
+
         self._log(LogLevel.WARNING, message, context=context)
 
     def error(
@@ -75,6 +135,16 @@ class Logger:
         context: Optional[dict[str, Any]] = None,
         exc: Optional[Exception] = None,
     ) -> None:
+
+        """
+        Writes an error log entry
+
+        Parameters:
+            message (str): Log message
+            context (Optional[dict[str, Any]]): Context metadata
+            exc (Optional[Exception]): Optional exception
+        """
+
         self._log(LogLevel.ERROR, message, context=context, exc=exc)
 
     def _log(
@@ -85,6 +155,17 @@ class Logger:
         context: Optional[dict[str, Any]] = None,
         exc: Optional[Exception] = None,
     ) -> None:
+
+        """
+        Writes a log entry when it meets the configured threshold
+
+        Parameters:
+            level (LogLevel): Log severity level
+            message (str): Log message
+            context (Optional[dict[str, Any]]): Context metadata
+            exc (Optional[Exception]): Optional exception
+        """
+
         if level < self.level:
             return
 
@@ -107,6 +188,17 @@ class Logger:
                 f.write(line + "\n")
 
     def _format(self, record: LogRecord) -> str:
+
+        """
+        Formats a log record for output
+
+        Parameters:
+            record (LogRecord): Log record data
+
+        Returns:
+            str: Formatted log line
+        """
+
         context = (
             " " + " ".join(f"{k}={v}" for k, v in record.context.items())
             if record.context
