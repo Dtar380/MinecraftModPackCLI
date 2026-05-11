@@ -60,7 +60,7 @@ poetry install
 - If `data.json` is missing, run `builder create` first to scaffold services.
 
 ## :memo:  **Working On**
-Currently working on the MVP
+Currently working on version 0.4.0
 
 Already Planned releases
 | VERSION | INCLUDES                              |
