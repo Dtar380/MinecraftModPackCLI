@@ -154,6 +154,7 @@ class Builder:
         common_versions = set(mods[0].mc_versions)
         common_loaders = set(mods[0].mc_loaders)
 
+        # Intersect compatibility data across the mod list.
         for mod in mods[1:]:
             common_versions &= mod.mc_versions
             common_loaders &= mod.mc_loaders
@@ -192,6 +193,7 @@ class Builder:
 
         if not versions:
             raise RuntimeError("No compatible versions found")
+        # Sort by numeric parts to handle dotted version strings.
         return sorted(versions, key=lambda v: [int(p) for p in v.split(".") if p.isdigit()])[-1]
 
     def _pick_loader(self, loaders: set[str]) -> str:
@@ -211,6 +213,7 @@ class Builder:
 
         if not loaders:
             raise RuntimeError("No compatible loaders found")
+        # Prefer fabric when available for consistent defaults.
         if "fabric" in loaders:
             return "fabric"
         return sorted(loaders)[0]
@@ -244,6 +247,7 @@ class Builder:
         server_seed: list[Mod] = []
         client_seed: list[Mod] = []
 
+        # Each mod can appear in either or both seed lists.
         for mod in mods:
             if mod.server_required:
                 server_seed.append(mod)
@@ -297,6 +301,7 @@ class Builder:
             tuple[list[Mod], dict[str, set[str]]]: Full mod list and dependency map
         """
 
+        # Index known mods by project id to avoid duplicate lookups.
         by_project = {mod.project_id: mod for mod in all_mods}
 
         if logger:
@@ -318,6 +323,7 @@ class Builder:
         expanded = {mod.project_id for mod in seed}
         dependency_map: dict[str, set[str]] = {}
 
+        # Breadth-first expansion of required dependencies.
         queue = list(seed)
         while queue:
 
@@ -416,6 +422,7 @@ class Builder:
                     "mods": str(len(mods)),
                 },
             )
+        # Keep manifest creation centralized to avoid drift in metadata.
         return Manifest(
             name=name,
             version=version,
@@ -451,6 +458,7 @@ class Builder:
         result = ExportResult()
         result.mods = manifest.mods
 
+        # Target output path is namespaced by pack name/version/side.
         output_dir = (
             output_dir
             / manifest.name
@@ -473,6 +481,7 @@ class Builder:
 
         mods_dir.mkdir(parents=True, exist_ok=True)
 
+        # Prefer local files, fall back to remote download when missing.
         for mod in manifest.mods:
             src = src_dir / mod.file_name
 
@@ -552,6 +561,7 @@ class Builder:
                 context={"mods_dir": str(src_dir)},
             )
 
+        # Compare file names and hashes to detect missing or mismatched mods.
         manifest_mods = {mod.file_name for mod in manifest.mods}
         manifest_hashes = {mod.hash for mod in manifest.mods}
         on_disk_mods = {
@@ -571,6 +581,7 @@ class Builder:
             if mod not in manifest_mods:
                 extra.append(mod)
                 continue
+            # Hash mismatch indicates stale or wrong binary content.
             if self._fs.sha1(src_dir / mod, logger=logger) not in manifest_hashes:
                 mismatched.append(mod)
 
@@ -626,6 +637,7 @@ class Builder:
                 },
             )
 
+        # Download only missing or mismatched mods.
         for mod in manifest.mods:
             mod_path = mods_out / mod.file_name
             if mod_path.exists():

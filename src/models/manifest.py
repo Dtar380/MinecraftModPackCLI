@@ -47,6 +47,7 @@ class Manifest:
 
         if not versions:
             raise RuntimeError("No compatible versions found")
+        # Sort by numeric parts to handle dotted version strings.
         return sorted(versions, key=lambda v: [int(p) for p in v.split(".") if p.isdigit()])[-1]
 
     @staticmethod
@@ -64,6 +65,7 @@ class Manifest:
 
         if not loaders:
             raise RuntimeError("No compatible loaders found")
+        # Prefer fabric when available to keep defaults consistent.
         if "fabric" in loaders:
             return "fabric"
         return sorted(loaders)[0]
@@ -81,6 +83,7 @@ class Manifest:
             Manifest: Manifest object
         """
 
+        # Allow either explicit fields or compatibility lists.
         return cls(
             name=manifest["name"],
             version=manifest["version"],
@@ -102,6 +105,7 @@ class Manifest:
             dict: Dict with all the Manifest data
         """
 
+        # Serialize in a stable JSON-friendly structure.
         return {
             "name": self.name,
             "version": self.version,

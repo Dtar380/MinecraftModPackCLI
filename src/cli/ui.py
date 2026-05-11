@@ -53,6 +53,7 @@ class UI:
             text (str): Message text
         """
 
+        # Build a consistent tag prefix for all UI messages.
         tag = f"[{level.name}]"
         msg = f"{tag} {text}" if text else tag
 
@@ -70,6 +71,7 @@ class UI:
             name (str): Stage label
         """
 
+        # Ensure only one spinner is active at a time.
         if self._spinner:
             self._spinner.stop()
 
@@ -86,6 +88,7 @@ class UI:
             message (Optional[str]): Optional completion message
         """
 
+        # No active stage means there is nothing to finalize.
         if not self._spinner:
             return
 
@@ -105,6 +108,7 @@ class UI:
             message (Optional[str]): Optional failure message
         """
 
+        # No active stage means there is nothing to finalize.
         if not self._spinner:
             return
         text = message or (self._current_stage or "Failed")
@@ -168,5 +172,6 @@ class UI:
         """
 
         self._write(UILevel.INFO, "SUMMARY")
+        # Emit each summary line as a separate message for clarity.
         for line in lines:
             self._write(UILevel.INFO, f"- {line}")

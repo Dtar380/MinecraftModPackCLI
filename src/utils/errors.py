@@ -36,6 +36,7 @@ class AppError(Exception):
         """
 
         super().__init__(message)
+        # Store optional diagnostics for downstream reporting.
         self.cause = cause
         self.context = context or {}
         self.code = code

@@ -32,6 +32,7 @@ def main() -> None:
     Runs the CLI entrypoint
     """
 
+    # Delegate to Click's command dispatcher.
     cli()
 
 

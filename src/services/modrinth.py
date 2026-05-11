@@ -204,6 +204,7 @@ class ModrinthService:
 
         mods: list[Mod] = []
 
+        # Each hash maps to a version payload with project metadata ids.
         for file_hash, version_data in result.items():
             project_id = version_data["project_id"]
 
@@ -237,6 +238,7 @@ class ModrinthService:
                 context={"file": mod.file_name, "url": mod.url},
             )
 
+        # Stream large files to disk without buffering into memory.
         with requests.get(mod.url, stream=True) as r:
             if not r.ok:
                 if logger:

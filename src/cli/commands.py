@@ -62,6 +62,7 @@ class APP(Group):
         Registers public command factory methods defined on the class
         """
 
+        # Discover public factory methods and register any Click commands they return.
         for name, func in inspect.getmembers(
             self.__class__, predicate=inspect.isfunction
         ):
@@ -179,6 +180,7 @@ class APP(Group):
             )
             logger.debug("Mods dir resolved", context={"mods_dir": str(mods_dir)})
 
+            # If neither side is specified, export both by default.
             if not server and not client:
                 server = True
                 client = True
@@ -199,6 +201,7 @@ class APP(Group):
             self.ui.done("Resolving mods")
             logger.info("Mods resolved", context={"count": str(len(all_mods))})
 
+            # Split out seed mods before expanding dependencies by side.
             seed_mods = self.builder.drop_dependencies(all_mods)
             server_seed, client_seed = self.builder.classify_mods(seed_mods)
             logger.info("Dependencies dropped", context={"remaining": str(len(seed_mods))})
@@ -286,6 +289,7 @@ class APP(Group):
             self.ui.warn(f"No {side} mods to export")
             return set()
 
+        # Expand dependencies to build the full pack for this side.
         target_version, target_loader = self.builder.get_unique_compatibility(seed)
         self.ui.stage(f"Resolving {side} dependencies")
         pack, _ = self.builder.resolve_dependencies(
@@ -316,6 +320,7 @@ class APP(Group):
             logger=logger,
         )
 
+        # Write files and manifest to the output folder.
         self.ui.stage(f"Exporting {side} pack")
         result = self.builder.export(
             manifest=manifest,
@@ -419,6 +424,7 @@ class APP(Group):
             logger.info("Mods resolved", context={"count": str(len(all_mods))})
 
             seed_for_manifest = all_mods
+            # Use a single compatibility target for the manifest.
             manifest_version, manifest_loader = self.builder.get_unique_compatibility(
                 all_mods
             )
@@ -500,6 +506,7 @@ class APP(Group):
 
             logger.info("Command start", context={"command": "validate"})
 
+            # Accept either a manifest path or a pack directory.
             if src.is_dir():
                 manifest_path = src / "manifest.json"
                 if manifest_path.exists():
@@ -604,6 +611,7 @@ class APP(Group):
                 },
             )
 
+            # Ensure all expected mods were downloaded.
             expected = len(result.mods)
             actual = len(result.downloaded_mods)
             if actual < expected:

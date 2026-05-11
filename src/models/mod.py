@@ -52,6 +52,7 @@ class Mod:
             file_name (str): String with the filename of the mod
         """
 
+        # Translate Modrinth project/version payloads into local fields.
         return cls(
             name=project_data["title"],
             hash=version_data["files"][0]["hashes"]["sha1"],
@@ -83,6 +84,7 @@ class Mod:
             Mod: Mod object
         """
 
+        # Manifest data uses a "source" field to mark dependencies.
         return cls(
             name=mod["name"],
             hash=mod["hash"],
@@ -114,6 +116,7 @@ class Mod:
             bool: True when the project is a library
         """
 
+        # Treat common library categories as non-seed mods.
         categories = project_data.get("categories", [])
         return any(c in ["library", "api", "framework"] for c in categories)
 
@@ -152,6 +155,7 @@ class Mod:
             dict: Dict with all the Mod data
         """
 
+        # Sort sets to keep JSON output deterministic.
         return {
             "name": self.name,
             "hash": self.hash,

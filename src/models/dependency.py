@@ -33,6 +33,7 @@ class Dependency:
             Dependency: Dependency object
         """
 
+        # Map Modrinth dependency fields into the dataclass.
         return Dependency(
             project_id=dependency_data["project_id"],
             version_id=dependency_data["version_id"],
@@ -55,6 +56,7 @@ class Dependency:
             dict: Dict with all the Dependency data
         """
 
+        # Serialize to the wire format expected by manifests.
         return {
             "project_id": self.project_id,
             "version_id": self.version_id,

@@ -65,6 +65,7 @@ class FilesystemService:
 
         h = hashlib.sha1()
         with open(path, "rb") as f:
+            # Stream in chunks to avoid loading large files into memory.
             while chunk := f.read(8192):
                 h.update(chunk)
         if logger:
@@ -107,6 +108,7 @@ class FilesystemService:
             bool: Returns true if succeded
         """
 
+        # Preserve file metadata when copying to the pack directory.
         shutil.copy2(src, dst)
         if logger:
             logger.debug("Copied mod", context={"src": str(src), "dst": str(dst)})
@@ -132,6 +134,7 @@ class FilesystemService:
         """
 
         file_path = output_dir / "manifest.json"
+        # Use a stable JSON format for diffs and readability.
         with open(file_path, "+w", encoding="utf-8") as f:
             json.dump(manifest.to_dict(), f, indent=2)
         if logger:
@@ -154,6 +157,7 @@ class FilesystemService:
         """
 
         file_path = manifest_path
+        # Load the on-disk manifest and normalize it into a model.
         with open(file_path, "+r", encoding="utf-8") as f:
             data = json.load(f)
         if logger:

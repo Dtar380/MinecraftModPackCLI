@@ -83,6 +83,7 @@ class Logger:
         self.level = level
         self.target = target
         self.file_path = file_path or None
+        # Ensure the log file exists before any writes.
         if self.file_path:
             self.file_path.touch(exist_ok=True)
 
@@ -166,6 +167,7 @@ class Logger:
             exc (Optional[Exception]): Optional exception
         """
 
+        # Skip messages below the configured threshold.
         if level < self.level:
             return
 
@@ -178,6 +180,7 @@ class Logger:
         )
         line = self._format(record)
 
+        # Write to each selected output target.
         if self.target in (LogTarget.CONSOLE, LogTarget.BOTH):
             print(line)
 
@@ -199,6 +202,7 @@ class Logger:
             str: Formatted log line
         """
 
+        # Inline context key/value pairs to keep log lines compact.
         context = (
             " " + " ".join(f"{k}={v}" for k, v in record.context.items())
             if record.context
