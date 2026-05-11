@@ -6,6 +6,8 @@ from __future__ import annotations
 # === BUILT IN ===
 from dataclasses import dataclass
 
+from ..utils import errors
+
 # ===============================================
 #  DEPENDENCY
 # ===============================================
@@ -34,11 +36,18 @@ class Dependency:
         """
 
         # Map Modrinth dependency fields into the dataclass.
-        return Dependency(
-            project_id=dependency_data["project_id"],
-            version_id=dependency_data["version_id"],
-            dependency_type=dependency_data["dependency_type"],
-        )
+        try:
+            return Dependency(
+                project_id=dependency_data["project_id"],
+                version_id=dependency_data["version_id"],
+                dependency_type=dependency_data["dependency_type"],
+            )
+        except (KeyError, TypeError) as exc:
+            raise errors.ModpackError(
+                "Invalid dependency data",
+                cause=exc,
+                code="dependency_parse_failed",
+            ) from exc
 
     @property
     def is_required(self) -> bool:

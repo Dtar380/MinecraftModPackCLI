@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 # === LOCAL ===
 from .dependency import Dependency
+from ..utils import errors
 
 # ===============================================
 #  MOD
@@ -53,23 +54,30 @@ class Mod:
         """
 
         # Translate Modrinth project/version payloads into local fields.
-        return cls(
-            name=project_data["title"],
-            hash=version_data["files"][0]["hashes"]["sha1"],
-            mc_versions=set(version_data.get("game_versions", [])),
-            mc_loaders=set(version_data.get("loaders", [])),
-            project_id=project_data["id"],
-            version_id=version_data["id"],
-            client_side=project_data["client_side"],
-            server_side=project_data["server_side"],
-            file_name=file_name,
-            url=version_data["files"][0]["url"],
-            is_library=cls.__is_library(project_data),
-            dependencies=[
-                Dependency.from_dict(dep)
-                for dep in version_data.get("dependencies", [])
-            ],
-        )
+        try:
+            return cls(
+                name=project_data["title"],
+                hash=version_data["files"][0]["hashes"]["sha1"],
+                mc_versions=set(version_data.get("game_versions", [])),
+                mc_loaders=set(version_data.get("loaders", [])),
+                project_id=project_data["id"],
+                version_id=version_data["id"],
+                client_side=project_data["client_side"],
+                server_side=project_data["server_side"],
+                file_name=file_name,
+                url=version_data["files"][0]["url"],
+                is_library=cls.__is_library(project_data),
+                dependencies=[
+                    Dependency.from_dict(dep)
+                    for dep in version_data.get("dependencies", [])
+                ],
+            )
+        except (KeyError, TypeError, IndexError) as exc:
+            raise errors.ModpackError(
+                "Invalid Modrinth mod data",
+                cause=exc,
+                code="modrinth_parse_failed",
+            ) from exc
 
     @classmethod
     def from_dict(cls, mod: dict) -> Mod:
@@ -85,23 +93,30 @@ class Mod:
         """
 
         # Manifest data uses a "source" field to mark dependencies.
-        return cls(
-            name=mod["name"],
-            hash=mod["hash"],
-            mc_versions=set(mod.get("mc_versions", [])),
-            mc_loaders=set(mod.get("mc_loaders", [])),
-            project_id=mod["project_id"],
-            version_id=mod["version_id"],
-            client_side=mod["client_side"],
-            server_side=mod["server_side"],
-            file_name=mod["file_name"],
-            url=mod["url"],
-            is_library=True if mod["source"] == "dependency" else False,
-            dependencies=[
-                Dependency.from_dict(dep)
-                for dep in mod.get("dependencies", [])
-            ],
-        )
+        try:
+            return cls(
+                name=mod["name"],
+                hash=mod["hash"],
+                mc_versions=set(mod.get("mc_versions", [])),
+                mc_loaders=set(mod.get("mc_loaders", [])),
+                project_id=mod["project_id"],
+                version_id=mod["version_id"],
+                client_side=mod["client_side"],
+                server_side=mod["server_side"],
+                file_name=mod["file_name"],
+                url=mod["url"],
+                is_library=True if mod["source"] == "dependency" else False,
+                dependencies=[
+                    Dependency.from_dict(dep)
+                    for dep in mod.get("dependencies", [])
+                ],
+            )
+        except (KeyError, TypeError) as exc:
+            raise errors.ModpackError(
+                "Invalid manifest mod data",
+                cause=exc,
+                code="manifest_mod_parse_failed",
+            ) from exc
 
     @classmethod
     def __is_library(cls, project_data: dict) -> bool:

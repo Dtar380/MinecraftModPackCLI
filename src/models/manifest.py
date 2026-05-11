@@ -9,6 +9,7 @@ from datetime import datetime
 
 # === LOCAL ===
 from .mod import Mod
+from ..utils import errors
 
 # ===============================================
 #  MANIFEST
@@ -46,7 +47,10 @@ class Manifest:
         """
 
         if not versions:
-            raise RuntimeError("No compatible versions found")
+            raise errors.ManifestError(
+                "No compatible versions found",
+                code="manifest_no_versions",
+            )
         # Sort by numeric parts to handle dotted version strings.
         return sorted(versions, key=lambda v: [int(p) for p in v.split(".") if p.isdigit()])[-1]
 
@@ -64,7 +68,10 @@ class Manifest:
         """
 
         if not loaders:
-            raise RuntimeError("No compatible loaders found")
+            raise errors.ManifestError(
+                "No compatible loaders found",
+                code="manifest_no_loaders",
+            )
         # Prefer fabric when available to keep defaults consistent.
         if "fabric" in loaders:
             return "fabric"
@@ -84,17 +91,25 @@ class Manifest:
         """
 
         # Allow either explicit fields or compatibility lists.
-        return cls(
-            name=manifest["name"],
-            version=manifest["version"],
-            side=manifest["side"],
-            mc_version=manifest.get("mc_version")
-            or cls._pick_version(manifest.get("mc_versions", [])),
-            mc_loader=manifest.get("mc_loader")
-            or cls._pick_loader(manifest.get("mc_loaders", [])),
-            created_at=datetime.fromisoformat(manifest["created_at"]),
-            mods=[Mod.from_dict(mod) for mod in manifest.get("mods", [])],
-        )
+        try:
+            return cls(
+                name=manifest["name"],
+                version=manifest["version"],
+                side=manifest["side"],
+                mc_version=manifest.get("mc_version")
+                or cls._pick_version(manifest.get("mc_versions", [])),
+                mc_loader=manifest.get("mc_loader")
+                or cls._pick_loader(manifest.get("mc_loaders", [])),
+                created_at=datetime.fromisoformat(manifest["created_at"]),
+                mods=[Mod.from_dict(mod) for mod in manifest.get("mods", [])],
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise errors.ManifestError(
+                "Invalid manifest data",
+                cause=exc,
+                context={"field": str(exc)},
+                code="manifest_parse_failed",
+            ) from exc
 
     def to_dict(self) -> dict:
 
