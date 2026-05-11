@@ -62,7 +62,7 @@ class UI:
         empty = self._bar_width - filled
         return f"[{'#' * filled}{'-' * empty}] {int(progress * 100)}%"
 
-    def _render_stage_line(self, label: str, progress: float) -> str:
+    def _stage_line(self, label: str, progress: float) -> str:
 
         """
         Renders a stage line with progress
@@ -75,46 +75,7 @@ class UI:
             str: Rendered stage line
         """
 
-        label_text = label.ljust(self._label_width)
-        tag = "STAGE"
-        pad = " " * (5 - len(tag))
-        return f"[{tag}]{pad} {label_text} {self._bar(progress)}"
-
-    def _render_done_line(self, label: str, progress: float) -> str:
-
-        """
-        Renders a done line with progress
-
-        Parameters:
-            label (str): Stage label
-            progress (float): Progress between 0.0 and 1.0
-
-        Returns:
-            str: Rendered done line
-        """
-
-        label_text = label.ljust(self._label_width)
-        tag = "DONE"
-        pad = " " * (5 - len(tag))
-        return f"[{tag}]{pad} {label_text} {self._bar(progress)}"
-
-    def _render_fail_line(self, label: str, progress: float) -> str:
-
-        """
-        Renders a fail line with progress
-
-        Parameters:
-            label (str): Stage label
-            progress (float): Progress between 0.0 and 1.0
-
-        Returns:
-            str: Rendered fail line
-        """
-
-        label_text = label.ljust(self._label_width)
-        tag = "FAIL"
-        pad = " " * (5 - len(tag))
-        return f"[{tag}]{pad} {label_text} {self._bar(progress)}"
+        return f"[STAGE] {label.ljust(self._label_width)} {self._bar(progress)}"
 
     def is_bar_active(self) -> bool:
 
@@ -145,7 +106,7 @@ class UI:
         if not self._bar_active:
             return
         label = self._current_stage or "Working"
-        line = self._render_stage_line(label, self._last_progress)
+        line = self._stage_line(label, self._last_progress)
         padding = max(self._last_render_len - len(line), 0)
         sys.stdout.write("\r" + line + (" " * padding))
         sys.stdout.flush()
@@ -213,12 +174,9 @@ class UI:
 
         self._last_progress = progress
         label = message or (self._current_stage or "Working")
-        line = self._render_stage_line(label, progress)
+        line = self._stage_line(label, progress)
         padding = max(self._last_render_len - len(line), 0)
-        if not self._bar_drawn:
-            sys.stdout.write("\r" + line + (" " * padding))
-        else:
-            sys.stdout.write("\r" + line + (" " * padding))
+        sys.stdout.write("\r" + line + (" " * padding))
         sys.stdout.flush()
         self._last_render_len = len(line)
         self._bar_drawn = True
@@ -237,8 +195,9 @@ class UI:
             return
 
         text = message or (self._current_stage or "Done")
-        self.clear_bar_line()
-        print(self._render_done_line(text, 1.0))
+        line = f"[DONE]  {text.ljust(self._label_width)} {self._bar(1.0)}"
+        padding = max(self._last_render_len - len(line), 0)
+        sys.stdout.write("\r" + line + (" " * padding) + "\n")
         self._bar_active = False
         self._current_stage = None
         self._last_render_len = 0
@@ -257,8 +216,9 @@ class UI:
         if not self._bar_active:
             return
         text = message or (self._current_stage or "Failed")
-        self.clear_bar_line()
-        print(self._render_fail_line(text, 0.0))
+        line = f"[FAIL]  {text.ljust(self._label_width)} {self._bar(0.0)}"
+        padding = max(self._last_render_len - len(line), 0)
+        sys.stdout.write("\r" + line + (" " * padding) + "\n")
         self._bar_active = False
         self._current_stage = None
         self._last_render_len = 0
