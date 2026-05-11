@@ -16,6 +16,7 @@ import shutil
 
 # === LOCAL ===
 from ..models import Manifest
+from ..utils import errors
 from ..utils.logging import Logger
 
 # ===============================================
@@ -42,6 +43,13 @@ class FilesystemService:
             list[Path]: List with all jar files paths located
         """
 
+        if not mods_dir.exists():
+            raise errors.FilesystemError(
+                "Mods directory does not exist",
+                context={"path": str(mods_dir)},
+                code="mods_dir_missing",
+            )
+
         mods = list(mods_dir.glob("*.jar"))
         if logger:
             logger.debug(
@@ -64,10 +72,18 @@ class FilesystemService:
         """
 
         h = hashlib.sha1()
-        with open(path, "rb") as f:
-            # Stream in chunks to avoid loading large files into memory.
-            while chunk := f.read(8192):
-                h.update(chunk)
+        try:
+            with open(path, "rb") as f:
+                # Stream in chunks to avoid loading large files into memory.
+                while chunk := f.read(8192):
+                    h.update(chunk)
+        except OSError as exc:
+            raise errors.FilesystemError(
+                "Failed to hash file",
+                cause=exc,
+                context={"path": str(path)},
+                code="hash_failed",
+            ) from exc
         if logger:
             logger.debug("Computed sha1", context={"file": str(path)})
         return h.hexdigest()
@@ -109,7 +125,15 @@ class FilesystemService:
         """
 
         # Preserve file metadata when copying to the pack directory.
-        shutil.copy2(src, dst)
+        try:
+            shutil.copy2(src, dst)
+        except OSError as exc:
+            raise errors.FilesystemError(
+                "Failed to copy mod file",
+                cause=exc,
+                context={"src": str(src), "dst": str(dst)},
+                code="copy_failed",
+            ) from exc
         if logger:
             logger.debug("Copied mod", context={"src": str(src), "dst": str(dst)})
         return True
@@ -135,8 +159,16 @@ class FilesystemService:
 
         file_path = output_dir / "manifest.json"
         # Use a stable JSON format for diffs and readability.
-        with open(file_path, "+w", encoding="utf-8") as f:
-            json.dump(manifest.to_dict(), f, indent=2)
+        try:
+            with open(file_path, "+w", encoding="utf-8") as f:
+                json.dump(manifest.to_dict(), f, indent=2)
+        except (OSError, TypeError) as exc:
+            raise errors.FilesystemError(
+                "Failed to write manifest",
+                cause=exc,
+                context={"path": str(file_path)},
+                code="manifest_write_failed",
+            ) from exc
         if logger:
             logger.debug("Wrote manifest", context={"path": str(file_path)})
         return True
@@ -158,8 +190,16 @@ class FilesystemService:
 
         file_path = manifest_path
         # Load the on-disk manifest and normalize it into a model.
-        with open(file_path, "+r", encoding="utf-8") as f:
-            data = json.load(f)
+        try:
+            with open(file_path, "+r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise errors.FilesystemError(
+                "Failed to read manifest",
+                cause=exc,
+                context={"path": str(file_path)},
+                code="manifest_read_failed",
+            ) from exc
         if logger:
             logger.debug("Read manifest", context={"path": str(file_path)})
         return Manifest.from_dict(data)

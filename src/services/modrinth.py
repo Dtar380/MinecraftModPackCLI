@@ -14,6 +14,7 @@ from typing import Optional
 import requests  # type: ignore
 
 from ..models import Mod
+from ..utils import errors
 from ..utils.logging import Logger
 
 # ===============================================
@@ -53,21 +54,42 @@ class ModrinthService:
             RuntimeError: if the POST request failed
         """
 
-        r = self.session.post(
-            f"{self.BASE_URL}/version_files",
-            json={"hashes": hashes, "algorithm": "sha1"},
-            timeout=10,
-        )
+        try:
+            r = self.session.post(
+                f"{self.BASE_URL}/version_files",
+                json={"hashes": hashes, "algorithm": "sha1"},
+                timeout=10,
+            )
+        except requests.RequestException as exc:
+            raise errors.ModrinthError(
+                "Modrinth resolve_hashes request failed",
+                cause=exc,
+                context={"url": f"{self.BASE_URL}/version_files"},
+                code="request_failed",
+            ) from exc
 
         if not r.ok:
-            if logger:
-                logger.error(
-                    "Modrinth resolve_hashes failed",
-                    context={"status": str(r.status_code), "url": r.url},
-                )
-            raise RuntimeError("Modrinth resolve_hashes failed")
+            raise errors.ModrinthError(
+                "Modrinth resolve_hashes failed",
+                context={"status": str(r.status_code), "url": r.url},
+                code="bad_response",
+            )
 
-        return r.json()
+        try:
+            data = r.json()
+        except ValueError as exc:
+            raise errors.ModrinthError(
+                "Modrinth resolve_hashes returned invalid JSON",
+                cause=exc,
+                context={"url": r.url},
+                code="invalid_response",
+            ) from exc
+        if logger:
+            logger.debug(
+                "Modrinth resolve_hashes ok",
+                context={"count": str(len(data))},
+            )
+        return data
 
     def get_project(
         self, project_id: str, logger: Optional[Logger] = None
@@ -87,21 +109,44 @@ class ModrinthService:
             RuntimeError: if the GET request failed
         """
 
-        r = self.session.get(f"{self.BASE_URL}/project/{project_id}", timeout=2)
+        try:
+            r = self.session.get(
+                f"{self.BASE_URL}/project/{project_id}", timeout=2
+            )
+        except requests.RequestException as exc:
+            raise errors.ModrinthError(
+                "Modrinth get_project request failed",
+                cause=exc,
+                context={"project_id": project_id},
+                code="request_failed",
+            ) from exc
 
         if not r.ok:
-            if logger:
-                logger.error(
-                    "Modrinth get_project failed",
-                    context={
-                        "status": str(r.status_code),
-                        "project_id": project_id,
-                        "url": r.url,
-                    },
-                )
-            raise RuntimeError("Modrinth get_project failed")
+            raise errors.ModrinthError(
+                "Modrinth get_project failed",
+                context={
+                    "status": str(r.status_code),
+                    "project_id": project_id,
+                    "url": r.url,
+                },
+                code="bad_response",
+            )
 
-        return r.json()
+        try:
+            data = r.json()
+        except ValueError as exc:
+            raise errors.ModrinthError(
+                "Modrinth get_project returned invalid JSON",
+                cause=exc,
+                context={"project_id": project_id, "url": r.url},
+                code="invalid_response",
+            ) from exc
+        if logger:
+            logger.debug(
+                "Modrinth get_project ok",
+                context={"project_id": project_id},
+            )
+        return data
 
     def get_version(
         self, version_id: str, logger: Optional[Logger] = None
@@ -121,21 +166,44 @@ class ModrinthService:
             RuntimeError: if the GET request failed
         """
 
-        r = self.session.get(f"{self.BASE_URL}/version/{version_id}", timeout=2)
+        try:
+            r = self.session.get(
+                f"{self.BASE_URL}/version/{version_id}", timeout=2
+            )
+        except requests.RequestException as exc:
+            raise errors.ModrinthError(
+                "Modrinth get_version request failed",
+                cause=exc,
+                context={"version_id": version_id},
+                code="request_failed",
+            ) from exc
 
         if not r.ok:
-            if logger:
-                logger.error(
-                    "Modrinth get_version failed",
-                    context={
-                        "status": str(r.status_code),
-                        "version_id": version_id,
-                        "url": r.url,
-                    },
-                )
-            raise RuntimeError("Modrinth get_version failed")
+            raise errors.ModrinthError(
+                "Modrinth get_version failed",
+                context={
+                    "status": str(r.status_code),
+                    "version_id": version_id,
+                    "url": r.url,
+                },
+                code="bad_response",
+            )
 
-        return r.json()
+        try:
+            data = r.json()
+        except ValueError as exc:
+            raise errors.ModrinthError(
+                "Modrinth get_version returned invalid JSON",
+                cause=exc,
+                context={"version_id": version_id, "url": r.url},
+                code="invalid_response",
+            ) from exc
+        if logger:
+            logger.debug(
+                "Modrinth get_version ok",
+                context={"version_id": version_id},
+            )
+        return data
 
     def get_project_versions(
         self,
@@ -162,28 +230,53 @@ class ModrinthService:
             RuntimeError: if the GET request failed
         """
 
-        r = self.session.get(
-            f"{self.BASE_URL}/project/{project_id}/version",
-            params={
-                "loaders": json.dumps([mc_loader]),
-                "game_versions": json.dumps([mc_version]),
-            },
-            timeout=5,
-        )
+        try:
+            r = self.session.get(
+                f"{self.BASE_URL}/project/{project_id}/version",
+                params={
+                    "loaders": json.dumps([mc_loader]),
+                    "game_versions": json.dumps([mc_version]),
+                },
+                timeout=5,
+            )
+        except requests.RequestException as exc:
+            raise errors.ModrinthError(
+                "Modrinth get_project_versions request failed",
+                cause=exc,
+                context={
+                    "project_id": project_id,
+                    "mc_version": mc_version,
+                    "mc_loader": mc_loader,
+                },
+                code="request_failed",
+            ) from exc
 
         if not r.ok:
-            if logger:
-                logger.error(
-                    "Modrinth get_project_versions failed",
-                    context={
-                        "status": str(r.status_code),
-                        "project_id": project_id,
-                        "url": r.url,
-                    },
-                )
-            raise RuntimeError("Modrinth get_project_versions failed")
+            raise errors.ModrinthError(
+                "Modrinth get_project_versions failed",
+                context={
+                    "status": str(r.status_code),
+                    "project_id": project_id,
+                    "url": r.url,
+                },
+                code="bad_response",
+            )
 
-        return r.json()
+        try:
+            data = r.json()
+        except ValueError as exc:
+            raise errors.ModrinthError(
+                "Modrinth get_project_versions returned invalid JSON",
+                cause=exc,
+                context={"project_id": project_id, "url": r.url},
+                code="invalid_response",
+            ) from exc
+        if logger:
+            logger.debug(
+                "Modrinth get_project_versions ok",
+                context={"project_id": project_id, "count": str(len(data))},
+            )
+        return data
 
     def resolve_mods(
         self, hash_index: dict[str, Path], logger: Optional[Logger] = None
@@ -239,19 +332,34 @@ class ModrinthService:
             )
 
         # Stream large files to disk without buffering into memory.
-        with requests.get(mod.url, stream=True) as r:
-            if not r.ok:
-                if logger:
-                    logger.error(
+        try:
+            with requests.get(mod.url, stream=True, timeout=10) as r:
+                if not r.ok:
+                    raise errors.ModrinthError(
                         "Modrinth download_mod failed",
                         context={
                             "status": str(r.status_code),
                             "project_id": mod.project_id,
                             "url": r.url,
                         },
+                        code="bad_response",
                     )
-                raise RuntimeError("Modrinth download_mod failed")
 
-            with open(output_dir / mod.file_name, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
+                try:
+                    with open(output_dir / mod.file_name, "wb") as f:
+                        for chunk in r.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                except OSError as exc:
+                    raise errors.FilesystemError(
+                        "Failed to write downloaded mod",
+                        cause=exc,
+                        context={"path": str(output_dir / mod.file_name)},
+                        code="mod_write_failed",
+                    ) from exc
+        except requests.RequestException as exc:
+            raise errors.ModrinthError(
+                "Modrinth download_mod request failed",
+                cause=exc,
+                context={"url": mod.url, "project_id": mod.project_id},
+                code="request_failed",
+            ) from exc
