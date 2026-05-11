@@ -65,12 +65,11 @@ Currently working on the MVP
 Already Planned releases
 | VERSION | INCLUDES                              |
 | ------- | ------------------------------------- |
-| 0.4.0   | Migrate to TOML                       |
-| 0.5.0   | User Configurations                   |
-| 0.6.0   | Add more commands and supported files |
-| 0.7.0   | Packwiz like enviroment               |
-| 0.8.0   | Improved code base                    |
-| 0.9.0   | Implement tests                       |
+| 0.4.0   | User Configurations (TOML format)     |
+| 0.5.0   | Add more commands and supported files |
+| 0.6.0   | Packwiz like enviroment               |
+| 0.7.0   | Improved code base                    |
+| 0.8.0   | Implement tests                       |
 | 1.0.0   | Bug Fix, docs and Release             |
 
 Feel free to open Feature Requests at [issues](https://github.com/Dtar380/WorkspaceAutomation/issues/new/choose).
