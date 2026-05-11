@@ -54,7 +54,7 @@ class APP(Group):
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
         self.ui = UI()
-        self.builder = Builder()
+        self.builder = Builder(self.ui)
 
     def __register_commands(self) -> None:
 
@@ -116,7 +116,8 @@ class APP(Group):
         return Logger(
             level=level,
             target=target,
-            file_path=self.log_dir / f"{command}-{ts}.log"
+            file_path=self.log_dir / f"{command}-{ts}.log",
+            ui=self.ui,
         )
 
     def _handle_app_error(self, err: errors.AppError, logger: Logger) -> int:
@@ -230,9 +231,18 @@ class APP(Group):
                 self.ui.done("Scanning mods")
                 logger.info("Mods discovered", context={"count": str(len(mod_files))})
 
+                self.ui.stage("Hashing mods")
+                hash_index = self.builder.build_hash_index(
+                    mod_files,
+                    logger=logger,
+                )
+                self.ui.done("Hashing mods")
+
                 self.ui.stage("Resolving mods")
-                hash_index = self.builder.build_hash_index(mod_files, logger=logger)
-                all_mods = self.builder.resolve_mods(hash_index, logger=logger)
+                all_mods = self.builder.resolve_mods(
+                    hash_index,
+                    logger=logger,
+                )
                 self.ui.done("Resolving mods")
                 logger.info("Mods resolved", context={"count": str(len(all_mods))})
 
@@ -285,6 +295,14 @@ class APP(Group):
                         "dropped": str(dropped_total),
                         "total": str(len(all_mods)),
                     },
+                )
+
+                self.ui.summary(
+                    [
+                        f"mods_total={len(all_mods)}",
+                        f"mods_exported={len(exported_ids)}",
+                        f"mods_dropped={dropped_total}",
+                    ]
                 )
 
                 return 0
@@ -462,9 +480,18 @@ class APP(Group):
                 self.ui.done("Scanning mods")
                 logger.info("Mods discovered", context={"count": str(len(mod_files))})
 
+                self.ui.stage("Hashing mods")
+                hash_index = self.builder.build_hash_index(
+                    mod_files,
+                    logger=logger,
+                )
+                self.ui.done("Hashing mods")
+
                 self.ui.stage("Resolving mods")
-                hash_index = self.builder.build_hash_index(mod_files, logger=logger)
-                all_mods = self.builder.resolve_mods(hash_index, logger=logger)
+                all_mods = self.builder.resolve_mods(
+                    hash_index,
+                    logger=logger,
+                )
                 self.ui.done("Resolving mods")
                 logger.info("Mods resolved", context={"count": str(len(all_mods))})
 
@@ -511,6 +538,14 @@ class APP(Group):
                 logger.info(
                     "Manifest saved",
                     context={"path": str(output_dir / "manifest.json")},
+                )
+
+                self.ui.summary(
+                    [
+                        f"mods_total={len(all_mods)}",
+                        f"mods_manifest={len(full_pack)}",
+                        f"manifest_path={output_dir / 'manifest.json'}",
+                    ]
                 )
 
                 return 0
@@ -605,9 +640,23 @@ class APP(Group):
                             "extra": str(len(result.extra)),
                         },
                     )
+                    self.ui.summary(
+                        [
+                            f"missing={len(result.missing)}",
+                            f"mismatched={len(result.mismatched)}",
+                            f"extra={len(result.extra)}",
+                        ]
+                    )
                     return 1
 
                 self.ui.success("Validation passed")
+                self.ui.summary(
+                    [
+                        "missing=0",
+                        "mismatched=0",
+                        f"extra={len(result.extra)}",
+                    ]
+                )
                 return 0
             except errors.AppError as exc:
                 return self._handle_app_error(exc, logger)
@@ -680,9 +729,21 @@ class APP(Group):
                         "Download incomplete",
                         context={"expected": str(expected), "downloaded": str(actual)},
                     )
+                    self.ui.summary(
+                        [
+                            f"mods_expected={expected}",
+                            f"mods_downloaded={actual}",
+                        ]
+                    )
                     return 1
 
                 self.ui.success(f"Downloaded: {actual} mods")
+                self.ui.summary(
+                    [
+                        f"mods_expected={expected}",
+                        f"mods_downloaded={actual}",
+                    ]
+                )
                 return 0
             except errors.AppError as exc:
                 return self._handle_app_error(exc, logger)

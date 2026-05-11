@@ -9,13 +9,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import requests  # type: ignore
 
 from ..models import Mod
 from ..utils import errors
 from ..utils.logging import Logger
+
+if TYPE_CHECKING:
+    from ..cli.ui import UI
 
 # ===============================================
 #  MODRINTH SERVICE
@@ -28,13 +31,14 @@ class ModrinthService:
 
     BASE_URL = "https://api.modrinth.com/v2"
 
-    def __init__(self):
+    def __init__(self, ui: Optional["UI"] = None) -> None:
 
         """
         Initializes a Modrinth session client
         """
 
         self.session = requests.Session()
+        self._ui = ui
 
     def resolve_hashes(
         self, hashes: list[str], logger: Optional[Logger] = None
@@ -279,7 +283,9 @@ class ModrinthService:
         return data
 
     def resolve_mods(
-        self, hash_index: dict[str, Path], logger: Optional[Logger] = None
+        self,
+        hash_index: dict[str, Path],
+        logger: Optional[Logger] = None,
     ) -> list[Mod]:
 
         """
@@ -297,8 +303,9 @@ class ModrinthService:
 
         mods: list[Mod] = []
 
+        total = len(result)
         # Each hash maps to a version payload with project metadata ids.
-        for file_hash, version_data in result.items():
+        for idx, (file_hash, version_data) in enumerate(result.items(), start=1):
             project_id = version_data["project_id"]
 
             project_data = self.get_project(project_id, logger=logger)
@@ -306,6 +313,8 @@ class ModrinthService:
                 project_data, version_data, hash_index[file_hash].name
             )
             mods.append(mod)
+            if self._ui:
+                self._ui.progress(idx, total)
 
         return mods
 

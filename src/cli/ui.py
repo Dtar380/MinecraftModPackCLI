@@ -6,10 +6,7 @@ from __future__ import annotations
 # === BUILT IN ===
 from enum import Enum
 from typing import Iterable, Optional
-
-# === EXTERNAL ===
-from yaspin import yaspin  # type: ignore
-from yaspin.core import Yaspin  # type: ignore
+import sys
 
 # ===============================================
 #  ENUMS
@@ -40,8 +37,120 @@ class UI:
         Initializes the UI state
         """
 
-        self._spinner: Optional[Yaspin] = None
         self._current_stage: Optional[str] = None
+        self._bar_active = False
+        self._bar_width = 50
+        self._label_width = 36
+        self._last_progress: float = 0.0
+        self._last_render_len = 0
+        self._bar_drawn = False
+
+    def _bar(self, progress: float) -> str:
+
+        """
+        Builds an ASCII progress bar
+
+        Parameters:
+            progress (float): Progress between 0.0 and 1.0
+
+        Returns:
+            str: Rendered bar string
+        """
+
+        progress = min(max(progress, 0.0), 1.0)
+        filled = int(self._bar_width * progress)
+        empty = self._bar_width - filled
+        return f"[{'#' * filled}{'-' * empty}] {int(progress * 100)}%"
+
+    def _render_stage_line(self, label: str, progress: float) -> str:
+
+        """
+        Renders a stage line with progress
+
+        Parameters:
+            label (str): Stage label
+            progress (float): Progress between 0.0 and 1.0
+
+        Returns:
+            str: Rendered stage line
+        """
+
+        label_text = label.ljust(self._label_width)
+        tag = "STAGE"
+        pad = " " * (5 - len(tag))
+        return f"[{tag}]{pad} {label_text} {self._bar(progress)}"
+
+    def _render_done_line(self, label: str, progress: float) -> str:
+
+        """
+        Renders a done line with progress
+
+        Parameters:
+            label (str): Stage label
+            progress (float): Progress between 0.0 and 1.0
+
+        Returns:
+            str: Rendered done line
+        """
+
+        label_text = label.ljust(self._label_width)
+        tag = "DONE"
+        pad = " " * (5 - len(tag))
+        return f"[{tag}]{pad} {label_text} {self._bar(progress)}"
+
+    def _render_fail_line(self, label: str, progress: float) -> str:
+
+        """
+        Renders a fail line with progress
+
+        Parameters:
+            label (str): Stage label
+            progress (float): Progress between 0.0 and 1.0
+
+        Returns:
+            str: Rendered fail line
+        """
+
+        label_text = label.ljust(self._label_width)
+        tag = "FAIL"
+        pad = " " * (5 - len(tag))
+        return f"[{tag}]{pad} {label_text} {self._bar(progress)}"
+
+    def is_bar_active(self) -> bool:
+
+        """
+        Returns true when a progress bar is active
+        """
+
+        return self._bar_active
+
+    def clear_bar_line(self) -> None:
+
+        """
+        Clears the current bar line from the terminal
+        """
+
+        if not self._bar_active:
+            return
+        sys.stdout.write("\r" + (" " * self._last_render_len) + "\r")
+        sys.stdout.flush()
+        self._bar_drawn = False
+
+    def redraw_bar(self) -> None:
+
+        """
+        Reprints the active bar line
+        """
+
+        if not self._bar_active:
+            return
+        label = self._current_stage or "Working"
+        line = self._render_stage_line(label, self._last_progress)
+        padding = max(self._last_render_len - len(line), 0)
+        sys.stdout.write("\r" + line + (" " * padding))
+        sys.stdout.flush()
+        self._last_render_len = len(line)
+        self._bar_drawn = True
 
     def _write(self, level: UILevel, text: str) -> None:
 
@@ -56,9 +165,10 @@ class UI:
         # Build a consistent tag prefix for all UI messages.
         tag = f"[{level.name}]"
         msg = f"{tag} {text}" if text else tag
-
-        if self._spinner:
-            self._spinner.write(msg)
+        if self._bar_active:
+            self.clear_bar_line()
+            print(msg)
+            self.redraw_bar()
         else:
             print(msg)
 
@@ -71,13 +181,47 @@ class UI:
             name (str): Stage label
         """
 
-        # Ensure only one spinner is active at a time.
-        if self._spinner:
-            self._spinner.stop()
+        # Ensure only one stage is active at a time.
+        if self._bar_active:
+            self.fail()
 
         self._current_stage = name
-        self._spinner = yaspin(color="cyan", text=f"[STAGE] {name}")
-        self._spinner.start()
+        self._bar_active = True
+        self._last_progress = 0.0
+        self._last_render_len = 0
+        self._bar_drawn = False
+
+    def progress(
+        self, current: int, total: int, message: Optional[str] = None
+    ) -> None:
+
+        """
+        Updates the progress bar for the active stage
+
+        Parameters:
+            current (int): Current progress value
+            total (int): Total progress value
+            message (Optional[str]): Optional label override
+        """
+
+        if not self._bar_active or total <= 0:
+            return
+
+        progress = min(max(current / total, 0.0), 1.0)
+        if progress < self._last_progress:
+            progress = self._last_progress
+
+        self._last_progress = progress
+        label = message or (self._current_stage or "Working")
+        line = self._render_stage_line(label, progress)
+        padding = max(self._last_render_len - len(line), 0)
+        if not self._bar_drawn:
+            sys.stdout.write("\r" + line + (" " * padding))
+        else:
+            sys.stdout.write("\r" + line + (" " * padding))
+        sys.stdout.flush()
+        self._last_render_len = len(line)
+        self._bar_drawn = True
 
     def done(self, message: Optional[str] = None) -> None:
 
@@ -89,15 +233,16 @@ class UI:
         """
 
         # No active stage means there is nothing to finalize.
-        if not self._spinner:
+        if not self._bar_active:
             return
 
         text = message or (self._current_stage or "Done")
-        self._spinner.ok("✔")
-        self._spinner.write(f"[DONE] {text}")
-        self._spinner.stop()
-        self._spinner = None
+        self.clear_bar_line()
+        print(self._render_done_line(text, 1.0))
+        self._bar_active = False
         self._current_stage = None
+        self._last_render_len = 0
+        self._bar_drawn = False
 
     def fail(self, message: Optional[str] = None) -> None:
 
@@ -109,14 +254,15 @@ class UI:
         """
 
         # No active stage means there is nothing to finalize.
-        if not self._spinner:
+        if not self._bar_active:
             return
         text = message or (self._current_stage or "Failed")
-        self._spinner.fail("✗")
-        self._spinner.write(f"[FAIL] {text}")
-        self._spinner.stop()
-        self._spinner = None
+        self.clear_bar_line()
+        print(self._render_fail_line(text, 0.0))
+        self._bar_active = False
         self._current_stage = None
+        self._last_render_len = 0
+        self._bar_drawn = False
 
     def info(self, text: str) -> None:
 

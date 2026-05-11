@@ -60,12 +60,11 @@ poetry install
 - If `data.json` is missing, run `builder create` first to scaffold services.
 
 ## :memo:  **Working On**
-Currently working on version 0.4.0
+Currently working on version 0.5.0
 
 Already Planned releases
 | VERSION | INCLUDES                              |
 | ------- | ------------------------------------- |
-| 0.4.0   | UI/UX improvements                    |
 | 0.5.0   | User Configurations (TOML format)     |
 | 0.6.0   | Add more commands and supported files |
 | 0.7.0   | Allow custom mods                     |

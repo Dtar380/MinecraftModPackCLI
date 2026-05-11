@@ -12,7 +12,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import IntEnum, Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..cli.ui import UI
 
 # ===============================================
 #  ENUMS
@@ -68,7 +71,8 @@ class Logger:
         self,
         level: LogLevel = LogLevel.INFO,
         target: LogTarget = LogTarget.BOTH,
-        file_path: Optional[Path] = None
+        file_path: Optional[Path] = None,
+        ui: Optional["UI"] = None,
     ) -> None:
 
         """
@@ -83,6 +87,7 @@ class Logger:
         self.level = level
         self.target = target
         self.file_path = file_path or None
+        self._ui = ui
         # Ensure the log file exists before any writes.
         if self.file_path:
             self.file_path.touch(exist_ok=True)
@@ -182,7 +187,12 @@ class Logger:
 
         # Write to each selected output target.
         if self.target in (LogTarget.CONSOLE, LogTarget.BOTH):
-            print(line)
+            if self._ui and self._ui.is_bar_active():
+                self._ui.clear_bar_line()
+                print(line)
+                self._ui.redraw_bar()
+            else:
+                print(line)
 
         if self.target in (LogTarget.FILE, LogTarget.BOTH):
             if not self.file_path:

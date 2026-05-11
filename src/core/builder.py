@@ -7,13 +7,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 # === LOCAL ===
 from ..models import Dependency, Manifest, Mod
 from ..services import FilesystemService, ModrinthService
 from ..utils import errors
 from ..utils.logging import Logger
+
+if TYPE_CHECKING:
+    from ..cli.ui import UI
 
 # ===============================================
 #  RESPONSE DATACLASS
@@ -62,15 +65,16 @@ class Builder:
     Exposes endpoints to orchestrate services
     """
 
-    def __init__(self) -> None:
+    def __init__(self, ui: Optional["UI"] = None) -> None:
 
         """
         Initializes service dependencies
         """
 
-        self._fs = FilesystemService()
-        self._modrinth = ModrinthService()
+        self._fs = FilesystemService(ui=ui)
+        self._modrinth = ModrinthService(ui=ui)
         self._now = datetime.now
+        self._ui = ui
 
     def discover_mods(
         self, mods_dir: Path, logger: Optional[Logger] = None
@@ -96,7 +100,9 @@ class Builder:
         return mods
 
     def build_hash_index(
-        self, mods: list[Path], logger: Optional[Logger] = None
+        self,
+        mods: list[Path],
+        logger: Optional[Logger] = None,
     ) -> dict[str, Path]:
 
         """
@@ -116,7 +122,9 @@ class Builder:
         return index
 
     def resolve_mods(
-        self, hash_index: dict[str, Path], logger: Optional[Logger] = None
+        self,
+        hash_index: dict[str, Path],
+        logger: Optional[Logger] = None,
     ) -> list[Mod]:
 
         """
@@ -495,7 +503,8 @@ class Builder:
         mods_dir.mkdir(parents=True, exist_ok=True)
 
         # Prefer local files, fall back to remote download when missing.
-        for mod in manifest.mods:
+        total = len(manifest.mods)
+        for idx, mod in enumerate(manifest.mods, start=1):
             src = src_dir / mod.file_name
 
             try:
@@ -516,6 +525,8 @@ class Builder:
                     },
                     code="export_mod_failed",
                 ) from exc
+            if self._ui:
+                self._ui.progress(idx, total)
 
         try:
             if self._fs.write_manifest(manifest, output_dir, logger=logger):
@@ -686,7 +697,8 @@ class Builder:
             )
 
         # Download only missing or mismatched mods.
-        for mod in manifest.mods:
+        total = len(manifest.mods)
+        for idx, mod in enumerate(manifest.mods, start=1):
             mod_path = mods_out / mod.file_name
             if mod_path.exists():
                 if self._fs.sha1(mod_path, logger=logger) == mod.hash:
@@ -705,6 +717,8 @@ class Builder:
                     },
                     code="build_download_failed",
                 ) from exc
+            if self._ui:
+                self._ui.progress(idx, total)
 
         if logger:
             logger.info(

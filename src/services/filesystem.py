@@ -11,13 +11,16 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 import shutil
 
 # === LOCAL ===
 from ..models import Manifest
 from ..utils import errors
 from ..utils.logging import Logger
+
+if TYPE_CHECKING:
+    from ..cli.ui import UI
 
 # ===============================================
 #  FILESYSTEMSERVICE
@@ -27,6 +30,17 @@ class FilesystemService:
     """
     Filesystem operations for mods and manifests
     """
+
+    def __init__(self, ui: Optional["UI"] = None) -> None:
+
+        """
+        Initializes the filesystem service
+
+        Parameters:
+            ui (Optional[UI]): Optional UI for progress updates
+        """
+
+        self._ui = ui
 
     def get_mods(
         self, mods_dir: Path, logger: Optional[Logger] = None
@@ -89,7 +103,9 @@ class FilesystemService:
         return h.hexdigest()
 
     def build_hash_index(
-        self, mods: list[Path], logger: Optional[Logger] = None
+        self,
+        mods: list[Path],
+        logger: Optional[Logger] = None,
     ) -> dict[str, Path]:
 
         """
@@ -103,7 +119,12 @@ class FilesystemService:
             dict[str, Path]: List with all jar files paths located
         """
 
-        index = {self.sha1(mod, logger=logger): mod for mod in mods}
+        index: dict[str, Path] = {}
+        total = len(mods)
+        for idx, mod in enumerate(mods, start=1):
+            index[self.sha1(mod, logger=logger)] = mod
+            if self._ui:
+                self._ui.progress(idx, total)
         if logger:
             logger.debug("Built hash index", context={"count": str(len(index))})
         return index
