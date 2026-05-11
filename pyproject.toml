@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "MinecraftModpackCLI"
-version = "0.2.0"
+version = "0.3.0"
 description = "A tool to make easier creating and releasing modpacks"
 readme = "README.md"
 license = "MIT"

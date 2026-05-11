@@ -65,7 +65,6 @@ Currently working on the MVP
 Already Planned releases
 | VERSION | INCLUDES                     |
 | ------- | ---------------------------- |
-| 0.2.0   | Docstrings and comments      |
 | 0.3.0   | Error and edge case handling |
 | 0.4.0   | Migrate to TOML              |
 | 0.5.0   | User Configurations          |
