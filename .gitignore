@@ -225,3 +225,4 @@ release/
 # TestModpack and logs
 TestModpack/
 logs/
+line_count.py

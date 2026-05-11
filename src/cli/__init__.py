@@ -8,4 +8,4 @@ CLI package for the modpack tool
 from __future__ import annotations
 
 # === LOCAL ===
-from .commands import APP
+from .app import APP

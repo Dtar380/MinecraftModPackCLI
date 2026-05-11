@@ -12,7 +12,7 @@ from click import group, version_option  # type: ignore
 
 # === LOCAL ===
 from . import version
-from .cli.commands import APP
+from .cli.app import APP
 
 # ===============================================
 #  MAIN
