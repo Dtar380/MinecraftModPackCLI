@@ -119,6 +119,41 @@ class APP(Group):
             file_path=self.log_dir / f"{command}-{ts}.log"
         )
 
+    def _handle_app_error(self, err: errors.AppError, logger: Logger) -> int:
+
+        """
+        Handles known application errors consistently
+
+        Parameters:
+            err (errors.AppError): Custom error instance
+            logger (Logger): Log helper
+
+        Returns:
+            int: Exit code
+        """
+
+        self.ui.fail()
+
+        details = []
+        if err.code:
+            details.append(f"code={err.code}")
+        if err.context:
+            details.append(", ".join(f"{k}={v}" for k, v in err.context.items()))
+        message = str(err)
+        if details:
+            message = f"{message} ({'; '.join(details)})"
+
+        self.ui.error(message)
+        context = {}
+        if err.code:
+            context["code"] = err.code
+        if err.context:
+            context.update({k: str(v) for k, v in err.context.items()})
+        if err.cause:
+            context["cause"] = str(err.cause)
+        logger.error(str(err), context=context)
+        return 1
+
     def export(self) -> Command:
 
         """
@@ -165,91 +200,101 @@ class APP(Group):
             """
 
             logger = self._logger("export", verbose)
-            mods_dir = self._mods_dir(src)
+            try:
+                mods_dir = self._mods_dir(src)
 
-            logger.info("Command start", context={"command": "export"})
-            logger.debug(
-                "Input params",
-                context={
-                    "modpack": modpack,
-                    "src": str(src),
-                    "version": version,
-                    "server": str(server),
-                    "client": str(client),
-                },
-            )
-            logger.debug("Mods dir resolved", context={"mods_dir": str(mods_dir)})
+                logger.info("Command start", context={"command": "export"})
+                logger.debug(
+                    "Input params",
+                    context={
+                        "modpack": modpack,
+                        "src": str(src),
+                        "version": version,
+                        "server": str(server),
+                        "client": str(client),
+                    },
+                )
+                logger.debug("Mods dir resolved", context={"mods_dir": str(mods_dir)})
 
-            # If neither side is specified, export both by default.
-            if not server and not client:
-                server = True
-                client = True
+                # If neither side is specified, export both by default.
+                if not server and not client:
+                    server = True
+                    client = True
 
-            self.ui.stage("Scanning mods")
-            mod_files = self.builder.discover_mods(mods_dir, logger=logger)
-            if not mod_files:
-                self.ui.fail("Scanning mods")
-                self.ui.error("No mods found")
-                logger.error("No mods found")
+                self.ui.stage("Scanning mods")
+                mod_files = self.builder.discover_mods(mods_dir, logger=logger)
+                if not mod_files:
+                    self.ui.fail("Scanning mods")
+                    self.ui.error("No mods found")
+                    return 1
+                self.ui.done("Scanning mods")
+                logger.info("Mods discovered", context={"count": str(len(mod_files))})
+
+                self.ui.stage("Resolving mods")
+                hash_index = self.builder.build_hash_index(mod_files, logger=logger)
+                all_mods = self.builder.resolve_mods(hash_index, logger=logger)
+                self.ui.done("Resolving mods")
+                logger.info("Mods resolved", context={"count": str(len(all_mods))})
+
+                # Split out seed mods before expanding dependencies by side.
+                seed_mods = self.builder.drop_dependencies(all_mods)
+                server_seed, client_seed = self.builder.classify_mods(seed_mods)
+                logger.info(
+                    "Dependencies dropped",
+                    context={"remaining": str(len(seed_mods))},
+                )
+                logger.info(
+                    "Seeds classified",
+                    context={
+                        "server_seed": str(len(server_seed)),
+                        "client_seed": str(len(client_seed)),
+                    },
+                )
+
+                if server:
+                    server_ids = self._export_side(
+                        side="server",
+                        modpack=modpack,
+                        version=version,
+                        seed=server_seed,
+                        all_mods=all_mods,
+                        mods_dir=mods_dir,
+                        logger=logger,
+                    )
+                else:
+                    server_ids = set()
+
+                if client:
+                    client_ids = self._export_side(
+                        side="client",
+                        modpack=modpack,
+                        version=version,
+                        seed=client_seed,
+                        all_mods=all_mods,
+                        mods_dir=mods_dir,
+                        logger=logger,
+                    )
+                else:
+                    client_ids = set()
+
+                exported_ids = server_ids | client_ids
+                dropped_total = len({m.project_id for m in all_mods}) - len(exported_ids)
+                logger.info(
+                    "Export dropped mods",
+                    context={
+                        "dropped": str(dropped_total),
+                        "total": str(len(all_mods)),
+                    },
+                )
+
+                return 0
+            except errors.AppError as exc:
+                return self._handle_app_error(exc, logger)
+            except Exception as exc:
+                self.ui.fail()
+                self.ui.error("Unexpected error")
+                logger.error("Unexpected error", context={"error": str(exc)})
                 return 1
-            self.ui.done("Scanning mods")
-            logger.info("Mods discovered", context={"count": str(len(mod_files))})
-
-            self.ui.stage("Resolving mods")
-            hash_index = self.builder.build_hash_index(mod_files, logger=logger)
-            all_mods = self.builder.resolve_mods(hash_index, logger=logger)
-            self.ui.done("Resolving mods")
-            logger.info("Mods resolved", context={"count": str(len(all_mods))})
-
-            # Split out seed mods before expanding dependencies by side.
-            seed_mods = self.builder.drop_dependencies(all_mods)
-            server_seed, client_seed = self.builder.classify_mods(seed_mods)
-            logger.info("Dependencies dropped", context={"remaining": str(len(seed_mods))})
-            logger.info(
-                "Seeds classified",
-                context={
-                    "server_seed": str(len(server_seed)),
-                    "client_seed": str(len(client_seed)),
-                },
-            )
-
-            if server:
-                server_ids = self._export_side(
-                    side="server",
-                    modpack=modpack,
-                    version=version,
-                    seed=server_seed,
-                    all_mods=all_mods,
-                    mods_dir=mods_dir,
-                    logger=logger,
-                )
-            else:
-                server_ids = set()
-
-            if client:
-                client_ids = self._export_side(
-                    side="client",
-                    modpack=modpack,
-                    version=version,
-                    seed=client_seed,
-                    all_mods=all_mods,
-                    mods_dir=mods_dir,
-                    logger=logger,
-                )
-            else:
-                client_ids = set()
-
-            exported_ids = server_ids | client_ids
-            dropped_total = len({m.project_id for m in all_mods}) - len(exported_ids)
-            logger.info(
-                "Export dropped mods",
-                context={
-                    "dropped": str(dropped_total),
-                    "total": str(len(all_mods)),
-                },
-            )
-
-            return 0
 
         return Command(
             name=name, help=help_text, callback=callback, params=params
@@ -387,89 +432,95 @@ class APP(Group):
             """
 
             logger = self._logger("manifest", verbose)
-            mods_dir = self._mods_dir(src)
-            output_dir = mods_dir.parent
+            try:
+                mods_dir = self._mods_dir(src)
+                output_dir = mods_dir.parent
 
-            logger.info("Command start", context={"command": "manifest"})
-            logger.debug(
-                "Input params",
-                context={
-                    "modpack": modpack,
-                    "src": str(src),
-                    "version": version,
-                },
-            )
-            logger.debug(
-                "Paths resolved",
-                context={
-                    "mods_dir": str(mods_dir),
-                    "output_dir": str(output_dir),
-                },
-            )
+                logger.info("Command start", context={"command": "manifest"})
+                logger.debug(
+                    "Input params",
+                    context={
+                        "modpack": modpack,
+                        "src": str(src),
+                        "version": version,
+                    },
+                )
+                logger.debug(
+                    "Paths resolved",
+                    context={
+                        "mods_dir": str(mods_dir),
+                        "output_dir": str(output_dir),
+                    },
+                )
 
-            self.ui.stage("Scanning mods")
-            mod_files = self.builder.discover_mods(mods_dir, logger=logger)
-            if not mod_files:
-                self.ui.fail("Scanning mods")
-                self.ui.error("No mods found")
-                logger.error("No mods found")
+                self.ui.stage("Scanning mods")
+                mod_files = self.builder.discover_mods(mods_dir, logger=logger)
+                if not mod_files:
+                    self.ui.fail("Scanning mods")
+                    self.ui.error("No mods found")
+                    return 1
+                self.ui.done("Scanning mods")
+                logger.info("Mods discovered", context={"count": str(len(mod_files))})
+
+                self.ui.stage("Resolving mods")
+                hash_index = self.builder.build_hash_index(mod_files, logger=logger)
+                all_mods = self.builder.resolve_mods(hash_index, logger=logger)
+                self.ui.done("Resolving mods")
+                logger.info("Mods resolved", context={"count": str(len(all_mods))})
+
+                seed_for_manifest = all_mods
+                # Use a single compatibility target for the manifest.
+                manifest_version, manifest_loader = self.builder.get_unique_compatibility(
+                    all_mods
+                )
+
+                self.ui.stage("Resolving dependencies")
+                full_pack, _ = self.builder.resolve_dependencies(
+                    seed_for_manifest,
+                    all_mods,
+                    target_version=manifest_version,
+                    target_loader=manifest_loader,
+                    logger=logger,
+                )
+                self.ui.done("Resolving dependencies")
+                logger.info(
+                    "Dependencies resolved",
+                    context={"pack": str(len(full_pack))},
+                )
+
+                if not full_pack:
+                    self.ui.error("No mods to include in manifest")
+                    return 1
+
+                manifest_obj = self.builder.create_manifest(
+                    name=modpack,
+                    version=version,
+                    side="local",
+                    mc_version=manifest_version,
+                    mc_loader=manifest_loader,
+                    mods=full_pack,
+                    logger=logger,
+                )
+
+                self.ui.stage("Writing manifest")
+                self.builder.save_manifest(
+                    manifest=manifest_obj, output_path=output_dir, logger=logger
+                )
+                self.ui.done("Writing manifest")
+                self.ui.success("Manifest created")
+                logger.info(
+                    "Manifest saved",
+                    context={"path": str(output_dir / "manifest.json")},
+                )
+
+                return 0
+            except errors.AppError as exc:
+                return self._handle_app_error(exc, logger)
+            except Exception as exc:
+                self.ui.fail()
+                self.ui.error("Unexpected error")
+                logger.error("Unexpected error", context={"error": str(exc)})
                 return 1
-            self.ui.done("Scanning mods")
-            logger.info("Mods discovered", context={"count": str(len(mod_files))})
-
-            self.ui.stage("Resolving mods")
-            hash_index = self.builder.build_hash_index(mod_files, logger=logger)
-            all_mods = self.builder.resolve_mods(hash_index, logger=logger)
-            self.ui.done("Resolving mods")
-            logger.info("Mods resolved", context={"count": str(len(all_mods))})
-
-            seed_for_manifest = all_mods
-            # Use a single compatibility target for the manifest.
-            manifest_version, manifest_loader = self.builder.get_unique_compatibility(
-                all_mods
-            )
-
-            self.ui.stage("Resolving dependencies")
-            full_pack, _ = self.builder.resolve_dependencies(
-                seed_for_manifest,
-                all_mods,
-                target_version=manifest_version,
-                target_loader=manifest_loader,
-                logger=logger,
-            )
-            self.ui.done("Resolving dependencies")
-            logger.info(
-                "Dependencies resolved",
-                context={"pack": str(len(full_pack))},
-            )
-
-            if not full_pack:
-                self.ui.error("No mods to include in manifest")
-                logger.error("No mods to include in manifest")
-                return 1
-
-            manifest_obj = self.builder.create_manifest(
-                name=modpack,
-                version=version,
-                side="local",
-                mc_version=manifest_version,
-                mc_loader=manifest_loader,
-                mods=full_pack,
-                logger=logger,
-            )
-
-            self.ui.stage("Writing manifest")
-            self.builder.save_manifest(
-                manifest=manifest_obj, output_path=output_dir, logger=logger
-            )
-            self.ui.done("Writing manifest")
-            self.ui.success("Manifest created")
-            logger.info(
-                "Manifest saved",
-                context={"path": str(output_dir / "manifest.json")},
-            )
-
-            return 0
 
         return Command(
             name=name, help=help_text, callback=callback, params=params
@@ -503,61 +554,68 @@ class APP(Group):
             """
 
             logger = self._logger("validate", verbose)
+            try:
+                logger.info("Command start", context={"command": "validate"})
 
-            logger.info("Command start", context={"command": "validate"})
-
-            # Accept either a manifest path or a pack directory.
-            if src.is_dir():
-                manifest_path = src / "manifest.json"
-                if manifest_path.exists():
-                    base_dir = src.parent.parent.parent
+                # Accept either a manifest path or a pack directory.
+                if src.is_dir():
+                    manifest_path = src / "manifest.json"
+                    if manifest_path.exists():
+                        base_dir = src.parent.parent.parent
+                    else:
+                        base_dir = src
                 else:
-                    base_dir = src
-            else:
-                manifest_path = src
-                base_dir = src.parent.parent.parent
+                    manifest_path = src
+                    base_dir = src.parent.parent.parent
 
-            logger.debug(
-                "Validation paths",
-                context={
-                    "manifest": str(manifest_path),
-                    "base_dir": str(base_dir),
-                },
-            )
+                logger.debug(
+                    "Validation paths",
+                    context={
+                        "manifest": str(manifest_path),
+                        "base_dir": str(base_dir),
+                    },
+                )
 
-            self.ui.stage("Validating manifest")
-            result = self.builder.validate(
-                manifest_path=manifest_path,
-                src_dir=base_dir,
-                logger=logger,
-            )
-            self.ui.done("Validating manifest")
+                self.ui.stage("Validating manifest")
+                result = self.builder.validate(
+                    manifest_path=manifest_path,
+                    src_dir=base_dir,
+                    logger=logger,
+                )
+                self.ui.done("Validating manifest")
 
-            logger.info(
-                "Validation result",
-                context={
-                    "missing": str(len(result.missing)),
-                    "mismatched": str(len(result.mismatched)),
-                    "extra": str(len(result.extra)),
-                },
-            )
-
-            if result.missing or result.mismatched:
-                self.ui.warn(f"Missing: {len(result.missing)}")
-                self.ui.warn(f"Mismatched: {len(result.mismatched)}")
-                self.ui.warn(f"Extra: {len(result.extra)}")
-                logger.warning(
-                    "Validation issues",
+                logger.info(
+                    "Validation result",
                     context={
                         "missing": str(len(result.missing)),
                         "mismatched": str(len(result.mismatched)),
                         "extra": str(len(result.extra)),
                     },
                 )
-                return 1
 
-            self.ui.success("Validation passed")
-            return 0
+                if result.missing or result.mismatched:
+                    self.ui.warn(f"Missing: {len(result.missing)}")
+                    self.ui.warn(f"Mismatched: {len(result.mismatched)}")
+                    self.ui.warn(f"Extra: {len(result.extra)}")
+                    logger.warning(
+                        "Validation issues",
+                        context={
+                            "missing": str(len(result.missing)),
+                            "mismatched": str(len(result.mismatched)),
+                            "extra": str(len(result.extra)),
+                        },
+                    )
+                    return 1
+
+                self.ui.success("Validation passed")
+                return 0
+            except errors.AppError as exc:
+                return self._handle_app_error(exc, logger)
+            except Exception as exc:
+                self.ui.fail()
+                self.ui.error("Unexpected error")
+                logger.error("Unexpected error", context={"error": str(exc)})
+                return 1
 
         return Command(
             name=name, help=help_text, callback=callback, params=params
@@ -591,39 +649,48 @@ class APP(Group):
             """
 
             logger = self._logger("build", verbose)
+            try:
+                logger.info("Command start", context={"command": "build"})
+                logger.debug("Manifest path", context={"manifest": str(manifest)})
 
-            logger.info("Command start", context={"command": "build"})
-            logger.debug("Manifest path", context={"manifest": str(manifest)})
-
-            self.ui.stage("Building modpack")
-            result = self.builder.build(
-                manifest_path=manifest,
-                output_dir=self.cwd,
-                logger=logger,
-            )
-            self.ui.done("Building modpack")
-
-            logger.info(
-                "Build result",
-                context={
-                    "expected": str(len(result.mods)),
-                    "downloaded": str(len(result.downloaded_mods)),
-                },
-            )
-
-            # Ensure all expected mods were downloaded.
-            expected = len(result.mods)
-            actual = len(result.downloaded_mods)
-            if actual < expected:
-                self.ui.warn(f"Download incomplete: expected={expected} downloaded={actual}")
-                logger.warning(
-                    "Download incomplete",
-                    context={"expected": str(expected), "downloaded": str(actual)},
+                self.ui.stage("Building modpack")
+                result = self.builder.build(
+                    manifest_path=manifest,
+                    output_dir=self.cwd,
+                    logger=logger,
                 )
-                return 1
+                self.ui.done("Building modpack")
 
-            self.ui.success(f"Downloaded: {actual} mods")
-            return 0
+                logger.info(
+                    "Build result",
+                    context={
+                        "expected": str(len(result.mods)),
+                        "downloaded": str(len(result.downloaded_mods)),
+                    },
+                )
+
+                # Ensure all expected mods were downloaded.
+                expected = len(result.mods)
+                actual = len(result.downloaded_mods)
+                if actual < expected:
+                    self.ui.warn(
+                        f"Download incomplete: expected={expected} downloaded={actual}"
+                    )
+                    logger.warning(
+                        "Download incomplete",
+                        context={"expected": str(expected), "downloaded": str(actual)},
+                    )
+                    return 1
+
+                self.ui.success(f"Downloaded: {actual} mods")
+                return 0
+            except errors.AppError as exc:
+                return self._handle_app_error(exc, logger)
+            except Exception as exc:
+                self.ui.fail()
+                self.ui.error("Unexpected error")
+                logger.error("Unexpected error", context={"error": str(exc)})
+                return 1
 
         return Command(
             name=name, help=help_text, callback=callback, params=params

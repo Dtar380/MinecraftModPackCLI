@@ -12,6 +12,7 @@ from typing import Optional
 # === LOCAL ===
 from ..models import Dependency, Manifest, Mod
 from ..services import FilesystemService, ModrinthService
+from ..utils import errors
 from ..utils.logging import Logger
 
 # ===============================================
@@ -192,7 +193,10 @@ class Builder:
         """
 
         if not versions:
-            raise RuntimeError("No compatible versions found")
+            raise errors.ValidationError(
+                "No compatible versions found",
+                code="no_compatible_versions",
+            )
         # Sort by numeric parts to handle dotted version strings.
         return sorted(versions, key=lambda v: [int(p) for p in v.split(".") if p.isdigit()])[-1]
 
@@ -212,7 +216,10 @@ class Builder:
         """
 
         if not loaders:
-            raise RuntimeError("No compatible loaders found")
+            raise errors.ValidationError(
+                "No compatible loaders found",
+                code="no_compatible_loaders",
+            )
         # Prefer fabric when available for consistent defaults.
         if "fabric" in loaders:
             return "fabric"
@@ -356,9 +363,15 @@ class Builder:
                         logger=logger,
                     )
                     if not versions:
-                        raise RuntimeError(
-                            "No compatible versions for dependency "
-                            f"{dep.project_id} ({mod.mc_loaders} {mod.mc_versions})"
+                        raise errors.ModpackError(
+                            "No compatible versions for dependency",
+                            context={
+                                "project_id": dep.project_id,
+                                "mod_project_id": mod.project_id,
+                                "loaders": ",".join(sorted(mod.mc_loaders)),
+                                "versions": ",".join(sorted(mod.mc_versions)),
+                            },
+                            code="dependency_version_missing",
                         )
                     dep = Dependency(
                         project_id=dep.project_id,
@@ -485,16 +498,35 @@ class Builder:
         for mod in manifest.mods:
             src = src_dir / mod.file_name
 
-            if src.exists():
-                dst = mods_dir / mod.file_name
-                self._fs.copy_mod(src, dst, logger=logger)
-                result.exported_mods.append(mod)
-            else:
-                self._modrinth.download_mod(mod, mods_dir, logger=logger)
-                result.exported_mods.append(mod)
+            try:
+                if src.exists():
+                    dst = mods_dir / mod.file_name
+                    self._fs.copy_mod(src, dst, logger=logger)
+                    result.exported_mods.append(mod)
+                else:
+                    self._modrinth.download_mod(mod, mods_dir, logger=logger)
+                    result.exported_mods.append(mod)
+            except errors.AppError as exc:
+                raise errors.ExportError(
+                    "Failed to export mod",
+                    cause=exc,
+                    context={
+                        "file": mod.file_name,
+                        "project_id": mod.project_id,
+                    },
+                    code="export_mod_failed",
+                ) from exc
 
-        if self._fs.write_manifest(manifest, output_dir, logger=logger):
-            result.manifest = manifest
+        try:
+            if self._fs.write_manifest(manifest, output_dir, logger=logger):
+                result.manifest = manifest
+        except errors.AppError as exc:
+            raise errors.ExportError(
+                "Failed to write export manifest",
+                cause=exc,
+                context={"path": str(output_dir / "manifest.json")},
+                code="export_manifest_failed",
+            ) from exc
 
         if logger:
             logger.info(
@@ -546,7 +578,15 @@ class Builder:
             ValidationResult: Missing, extra, and mismatched mods
         """
 
-        manifest = self._fs.read_manifest(manifest_path, logger=logger)
+        try:
+            manifest = self._fs.read_manifest(manifest_path, logger=logger)
+        except errors.AppError as exc:
+            raise errors.ValidationError(
+                "Failed to read manifest",
+                cause=exc,
+                context={"path": str(manifest_path)},
+                code="manifest_read_failed",
+            ) from exc
         src_dir = (
             src_dir
             / manifest.name
@@ -613,7 +653,15 @@ class Builder:
 
         result = BuildResult()
 
-        manifest = self._fs.read_manifest(manifest_path, logger=logger)
+        try:
+            manifest = self._fs.read_manifest(manifest_path, logger=logger)
+        except errors.AppError as exc:
+            raise errors.BuildError(
+                "Failed to read manifest for build",
+                cause=exc,
+                context={"path": str(manifest_path)},
+                code="manifest_read_failed",
+            ) from exc
         result.mods = manifest.mods
 
         mods_out = (
@@ -644,8 +692,19 @@ class Builder:
                 if self._fs.sha1(mod_path, logger=logger) == mod.hash:
                     continue
 
-            self._modrinth.download_mod(mod, mods_out, logger=logger)
-            result.downloaded_mods.append(mod)
+            try:
+                self._modrinth.download_mod(mod, mods_out, logger=logger)
+                result.downloaded_mods.append(mod)
+            except errors.AppError as exc:
+                raise errors.BuildError(
+                    "Failed to download mod during build",
+                    cause=exc,
+                    context={
+                        "file": mod.file_name,
+                        "project_id": mod.project_id,
+                    },
+                    code="build_download_failed",
+                ) from exc
 
         if logger:
             logger.info(
