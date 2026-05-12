@@ -17,6 +17,7 @@ from typing import Any, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from ..cli.ui import UI
 
+
 # ===============================================
 #  ENUMS
 # ===============================================
@@ -42,6 +43,7 @@ class LogTarget(str, Enum):
     FILE = "file"
     BOTH = "both"
 
+
 # ===============================================
 #  DATACLASS
 # ===============================================
@@ -57,6 +59,7 @@ class LogRecord:
     time: str
     context: dict[str, Any] = field(default_factory=dict)
     exc: Optional[Exception] = None
+
 
 # ===============================================
 #  LOGGER

@@ -30,6 +30,7 @@ from .ui import UI
 from ..core import Builder
 from ..utils import errors, Logger, LogLevel, LogTarget  # pylint: disable=W0611
 
+
 # ===============================================
 #  APP
 # ===============================================

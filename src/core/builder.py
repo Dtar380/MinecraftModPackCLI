@@ -18,6 +18,7 @@ from ..utils.logging import Logger
 if TYPE_CHECKING:
     from ..cli.ui import UI
 
+
 # ===============================================
 #  RESPONSE DATACLASS
 # ===============================================
@@ -33,6 +34,7 @@ class ExportResult:
     exported_mods: list[Mod] = field(default_factory=list)
     manifest: Optional[Manifest] = None
 
+
 # === VALIDATION RESULT ===
 @dataclass(slots=True)
 class ValidationResult:
@@ -45,6 +47,7 @@ class ValidationResult:
     extra: list[str] = field(default_factory=list)
     mismatched: list[str] = field(default_factory=list)
 
+
 # === BUILD RESULT ===
 @dataclass(slots=True)
 class BuildResult:
@@ -55,6 +58,7 @@ class BuildResult:
 
     mods: list[Mod] = field(default_factory=list)
     downloaded_mods: list[Mod] = field(default_factory=list)
+
 
 # ===============================================
 #  BUILDER

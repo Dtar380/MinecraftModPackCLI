@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from .dependency import Dependency
 from ..utils import errors
 
+
 # ===============================================
 #  MOD
 # ===============================================

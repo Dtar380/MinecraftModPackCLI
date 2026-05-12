@@ -8,6 +8,7 @@ from enum import Enum
 from typing import Iterable, Optional
 import sys
 
+
 # ===============================================
 #  ENUMS
 # ===============================================
@@ -21,6 +22,7 @@ class UILevel(str, Enum):
     WARN = "warn"
     ERROR = "error"
     SUCCESS = "success"
+
 
 # ===============================================
 #  UI

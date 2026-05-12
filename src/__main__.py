@@ -14,6 +14,7 @@ from click import group, version_option  # type: ignore
 from . import version
 from .cli.app import APP
 
+
 # ===============================================
 #  MAIN
 # ===============================================

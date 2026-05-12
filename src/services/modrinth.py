@@ -20,6 +20,7 @@ from ..utils.logging import Logger
 if TYPE_CHECKING:
     from ..cli.ui import UI
 
+
 # ===============================================
 #  MODRINTH SERVICE
 # ===============================================

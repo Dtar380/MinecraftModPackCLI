@@ -14,6 +14,7 @@ from pathlib import Path
 from click import Argument, Option  # type: ignore
 from click import Path as clickPath
 
+
 # ===============================================
 #  VARIABLES
 # ===============================================
