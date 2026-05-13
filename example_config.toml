@@ -1,0 +1,43 @@
+[defaults]
+modpack_name = "MyPack"
+version = "1.0.0"
+
+[paths]
+output_dir = "C:/Users/you/Modpacks"
+logs_dir = "C:/Users/you/Modpacks/logs"
+
+[logging]
+level = "info"
+target = "file"   # file|console|both
+file_path = ""
+use_ui = true
+
+[ui]
+enable_progress = true
+bar_width = 50
+label_width = 36
+
+[modrinth]
+base_url = "https://api.modrinth.com/v2"
+timeout_seconds = 10
+user_agent = "MinecraftModpackCLI/0.x"
+
+[resolve]
+version_policy = "latest_compatible"
+loader_policy = "prefer_fabric"
+
+[validate]
+strict_missing = true
+strict_extra = false
+strict_mismatch = true
+
+[build]
+skip_existing = true
+
+[export]
+allow_download = true
+copy_existing = true
+
+[filesystem]
+hash_chunk_size = 8192
+mod_glob = "*.jar"

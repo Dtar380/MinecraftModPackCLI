@@ -57,6 +57,13 @@ class ModrinthError(AppError):
     """
 
 
+class ConfigError(AppError):
+
+    """
+    Raised when the config is not correct
+    """
+
+
 class ModpackError(AppError):
 
     """
