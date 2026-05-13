@@ -226,3 +226,4 @@ release/
 TestModpack/
 logs/
 line_count.py
+plans/
