@@ -182,7 +182,7 @@ class FilesystemService:
         file_path = output_dir / "manifest.json"
         # Use a stable JSON format for diffs and readability.
         try:
-            with open(file_path, "+w", encoding="utf-8") as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(manifest.to_dict(), f, indent=2)
         except (OSError, TypeError) as exc:
             raise errors.FilesystemError(
@@ -213,7 +213,7 @@ class FilesystemService:
         file_path = manifest_path
         # Load the on-disk manifest and normalize it into a model.
         try:
-            with open(file_path, "+r", encoding="utf-8") as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except (OSError, json.JSONDecodeError) as exc:
             raise errors.FilesystemError(

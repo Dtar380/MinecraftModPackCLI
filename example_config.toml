@@ -1,43 +1,50 @@
-[defaults]
-modpack_name = "MyPack"
-version = "1.0.0"
+# Default settings for the modpack
+[defaults.names]
+name = "MyPack"
+version = "1.0"
 
-[paths]
-output_dir = "C:/Users/you/Modpacks"
-logs_dir = "C:/Users/you/Modpacks/logs"
+# Paths configuration
+[defaults.paths]
+output_dir = "C:/Users/you/Modpacks/"
+logs_dir = "C:/Users/you/Modpacks/logs/"
 
-[logging]
-level = "info"
-target = "file"   # file|console|both
-file_path = ""
-use_ui = true
+# Logging and UI configurations
+[cli.logging]
+level = "info"  # log level: debug, info, warning, error
+target = "file"  # logging target: file, console, both
+file_path = ""   # optional file path for logs (empty means using output_dir)
+use_ui = true    # whether to show progress UI
 
-[ui]
-enable_progress = true
-bar_width = 50
-label_width = 36
+[cli.ui]
+enable_progress = true  # display progress bar during operations
+bar_width = 50          # width of the progress bar in characters
+label_width = 36        # width of the label for progress bars
 
-[modrinth]
+# Filesystem settings for handling large files and mods
+[services.filesystem]
+hash_chunk_size = 8192   # chunk size in bytes for hashing operations
+mod_glob = "*.jar"     # pattern to match mod files (e.g., "/*.jar")
+
+# Configuration related to external services and tools
+[services.modrinth]
 base_url = "https://api.modrinth.com/v2"
 timeout_seconds = 10
 user_agent = "MinecraftModpackCLI/0.x"
 
-[resolve]
-version_policy = "latest_compatible"
-loader_policy = "prefer_fabric"
+# Resolver settings (related to modrinth)
+[services.modrinth.resolve]
+version_policy = "latest_compatible"  # how to handle version conflicts
+loader_policy = "prefer_fabric"       # preferred loader type
 
-[validate]
-strict_missing = true
-strict_extra = false
-strict_mismatch = true
+# Configuration related to specific core functionalities of the CLI tool
+[core.validate]
+strict_missing = true    # reject missing required fields
+strict_extra = false     # allow extra fields without rejecting
+strict_mismatch = true   # reject value mismatches
 
-[build]
-skip_existing = true
+[core.build]
+skip_existing = true  # skip existing files during build process
 
-[export]
-allow_download = true
-copy_existing = true
-
-[filesystem]
-hash_chunk_size = 8192
-mod_glob = "*.jar"
+[core.export]
+allow_download = true  # allow downloading mod files from URLs
+copy_existing = true    # copy existing files to the export directory
