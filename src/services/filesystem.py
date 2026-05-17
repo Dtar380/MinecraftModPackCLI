@@ -245,6 +245,86 @@ class FilesystemService:
             logger.debug("Read manifest", context={"path": str(file_path)})
         return Manifest.from_dict(data)
 
+    def write_pointer_file(
+        self,
+        pointer_path: Path,
+        target_path: Path,
+        logger: Optional[Logger] = None,
+    ) -> bool:
+
+        """
+        Writes a pointer file containing the resolved target path
+
+        Parameters:
+            pointer_path (Path): Path where the pointer file will be created
+            target_path (Path): Path the pointer file should reference
+            logger (Optional[Logger]): Log helper
+
+        Raises:
+            FilesystemError: If the pointer file cannot be written
+        """
+
+        resolved = target_path.resolve()
+        try:
+            pointer_path.write_text(str(resolved), encoding="utf-8")
+        except OSError as exc:
+            raise errors.FilesystemError(
+                "Failed to write pointer file",
+                cause=exc,
+                context={"pointer_path": str(pointer_path), "target": str(resolved)},
+                code="pointer_write_failed",
+            ) from exc
+        if logger:
+            logger.debug(
+                "Wrote pointer file",
+                context={"pointer_path": str(pointer_path), "target": str(resolved)},
+            )
+
+        return True
+
+    def read_pointer_file(
+        self,
+        pointer_path: Path,
+        logger: Optional[Logger] = None,
+    ) -> Path:
+
+        """
+        Reads a pointer file and returns the resolved target path
+
+        Parameters:
+            pointer_path (Path): Path to the pointer file
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            Path: Resolved target path stored in the pointer file
+
+        Raises:
+            FilesystemError: If the pointer file cannot be read or the
+                stored path is empty
+        """
+
+        try:
+            target = pointer_path.read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            raise errors.FilesystemError(
+                "Failed to read pointer file",
+                cause=exc,
+                context={"pointer_path": str(pointer_path)},
+                code="pointer_read_failed",
+            ) from exc
+        if not target:
+            raise errors.FilesystemError(
+                "Pointer file is empty",
+                context={"pointer_path": str(pointer_path)},
+                code="pointer_empty",
+            )
+        if logger:
+            logger.debug(
+                "Read pointer file",
+                context={"pointer_path": str(pointer_path), "target": target},
+            )
+        return Path(target).resolve()
+
     def write_config(
         self,
         config: AppConfig,
