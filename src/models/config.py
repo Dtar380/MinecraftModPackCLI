@@ -207,8 +207,6 @@ class AppConfig:
 # ===============================================
 #  Generic serialization / deserialization
 # ===============================================
-
-
 def from_dict(data_class: Any, data: dict) -> Any:
 
     """

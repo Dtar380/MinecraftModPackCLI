@@ -11,11 +11,12 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import toml  # type: ignore
 from typing import Optional, TYPE_CHECKING
 import shutil
 
 # === LOCAL ===
-from ..models import Manifest
+from ..models import Manifest, AppConfig, config_from_dict, config_to_dict
 from ..utils import errors
 from ..utils.logging import Logger
 
@@ -56,6 +57,9 @@ class FilesystemService:
 
         Returns:
             list[Path]: List with all jar files paths located
+
+        Raises:
+            FilesystemError: If the mods directory does not exist
         """
 
         if not mods_dir.exists():
@@ -84,6 +88,9 @@ class FilesystemService:
 
         Returns:
             str: SHA1 hash of the file
+
+        Raises:
+            FilesystemError: If the file cannot be read
         """
 
         h = hashlib.sha1()
@@ -117,7 +124,10 @@ class FilesystemService:
             logger (Optional[Logger]): Log helper
 
         Returns:
-            dict[str, Path]: List with all jar files paths located
+            dict[str, Path]: Dictionary mapping SHA1 hashes to mod file paths
+
+        Raises:
+            FilesystemError: If any mod file cannot be hashed
         """
 
         index: dict[str, Path] = {}
@@ -144,6 +154,9 @@ class FilesystemService:
 
         Returns:
             bool: Returns true if succeded
+
+        Raises:
+            FilesystemError: If the file copy operation fails
         """
 
         # Preserve file metadata when copying to the pack directory.
@@ -177,6 +190,9 @@ class FilesystemService:
 
         Returns:
             bool: Returns true if succeded
+
+        Raises:
+            FilesystemError: If the manifest file cannot be written
         """
 
         file_path = output_dir / "manifest.json"
@@ -208,6 +224,9 @@ class FilesystemService:
 
         Returns:
             Manifest: Manifest object with all the metadata
+
+        Raises:
+            FilesystemError: If the manifest file cannot be read or parsed
         """
 
         file_path = manifest_path
@@ -225,3 +244,75 @@ class FilesystemService:
         if logger:
             logger.debug("Read manifest", context={"path": str(file_path)})
         return Manifest.from_dict(data)
+
+    def write_config(
+        self,
+        config: AppConfig,
+        ouput_dir: Path,
+        logger: Optional[Logger] = None,
+    ) -> bool:
+
+        """
+        Writes the application config to a TOML-formatted file
+
+        Parameters:
+            config (AppConfig): Configuration object to persist
+            ouput_dir (Path): Directory where config.toml will be written
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            bool: True on success
+
+        Raises:
+            FilesystemError: If the config file cannot be written
+        """
+
+        file_path = ouput_dir / "config.toml"
+
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                toml.dump(config_to_dict(config), f)
+        except (OSError, TypeError) as exc:
+            raise errors.FilesystemError(
+                "Failed to write config",
+                cause=exc,
+                context={"path": str(file_path)},
+                code="config_write_failed",
+            ) from exc
+        if logger:
+            logger.debug("Wrote config", context={"path": str(file_path)})
+        return True
+
+    def read_config(
+        self, config_path: Path, logger: Optional[Logger] = None
+    ) -> AppConfig:
+
+        """
+        Reads and parses an application config from a TOML-formatted file
+
+        Parameters:
+            config_path (Path): Path to the config.toml file
+            logger (Optional[Logger]): Log helper
+
+        Returns:
+            AppConfig: Parsed configuration object
+
+        Raises:
+            FilesystemError: If the config file cannot be read or parsed
+        """
+
+        file_path = config_path
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = toml.load(f)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise errors.FilesystemError(
+                "Failed to read config",
+                cause=exc,
+                context={"path": str(file_path)},
+                code="config_read_failed",
+            ) from exc
+        if logger:
+            logger.debug("Read config", context={"path": str(file_path)})
+        return config_from_dict(AppConfig, data)
