@@ -44,6 +44,7 @@ class ConfigManager:
         Initialize the manager with a FilesystemService using default config
         """
 
+        self.config_path.mkdir(parents=True, exist_ok=True)
         self._fs = FilesystemService(AppConfig().services.filesystem)
 
     @property
