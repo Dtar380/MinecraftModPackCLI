@@ -14,6 +14,7 @@ from typing import Optional, TYPE_CHECKING
 import requests  # type: ignore
 
 from ..models import Mod
+from ..models.config import ModrinthConfig
 from ..utils import errors
 from ..utils.logging import Logger
 
@@ -30,9 +31,9 @@ class ModrinthService:
     ModrinthAPI wrapper for performing requests
     """
 
-    BASE_URL = "https://api.modrinth.com/v2"
-
-    def __init__(self, ui: Optional["UI"] = None) -> None:
+    def __init__(
+        self, config: ModrinthConfig, ui: Optional["UI"] = None
+    ) -> None:
 
         """
         Initializes a Modrinth session client
@@ -40,6 +41,7 @@ class ModrinthService:
 
         self.session = requests.Session()
         self._ui = ui
+        self._config = config
 
     def resolve_hashes(
         self, hashes: list[str], logger: Optional[Logger] = None
@@ -61,15 +63,16 @@ class ModrinthService:
 
         try:
             r = self.session.post(
-                f"{self.BASE_URL}/version_files",
+                f"{self._config.base_url}/version_files",
+                headers={"User-Agent": self._config.user_agent},
                 json={"hashes": hashes, "algorithm": "sha1"},
-                timeout=10,
+                timeout=self._config.timeout_seconds,
             )
         except requests.RequestException as exc:
             raise errors.ModrinthError(
                 "Modrinth resolve_hashes request failed",
                 cause=exc,
-                context={"url": f"{self.BASE_URL}/version_files"},
+                context={"url": f"{self._config.base_url}/version_files"},
                 code="request_failed",
             ) from exc
 
@@ -116,7 +119,9 @@ class ModrinthService:
 
         try:
             r = self.session.get(
-                f"{self.BASE_URL}/project/{project_id}", timeout=2
+                f"{self._config.base_url}/project/{project_id}",
+                headers={"User-Agent": self._config.user_agent},
+                timeout=self._config.timeout_seconds,
             )
         except requests.RequestException as exc:
             raise errors.ModrinthError(
@@ -173,7 +178,9 @@ class ModrinthService:
 
         try:
             r = self.session.get(
-                f"{self.BASE_URL}/version/{version_id}", timeout=2
+                f"{self._config.base_url}/version/{version_id}",
+                headers={"User-Agent": self._config.user_agent},
+                timeout=self._config.timeout_seconds,
             )
         except requests.RequestException as exc:
             raise errors.ModrinthError(
@@ -237,12 +244,13 @@ class ModrinthService:
 
         try:
             r = self.session.get(
-                f"{self.BASE_URL}/project/{project_id}/version",
+                f"{self._config.base_url}/project/{project_id}/version",
+                headers={"User-Agent": self._config.user_agent},
                 params={
                     "loaders": json.dumps([mc_loader]),
                     "game_versions": json.dumps([mc_version]),
                 },
-                timeout=5,
+                timeout=self._config.timeout_seconds,
             )
         except requests.RequestException as exc:
             raise errors.ModrinthError(
@@ -343,7 +351,9 @@ class ModrinthService:
 
         # Stream large files to disk without buffering into memory.
         try:
-            with requests.get(mod.url, stream=True, timeout=10) as r:
+            with requests.get(
+                mod.url, stream=True, timeout=self._config.timeout_seconds
+            ) as r:
                 if not r.ok:
                     raise errors.ModrinthError(
                         "Modrinth download_mod failed",
@@ -357,7 +367,9 @@ class ModrinthService:
 
                 try:
                     with open(output_dir / mod.file_name, "wb") as f:
-                        for chunk in r.iter_content(chunk_size=8192):
+                        for chunk in r.iter_content(
+                            chunk_size=self._config.download_chunk_size
+                        ):
                             f.write(chunk)
                 except OSError as exc:
                     raise errors.FilesystemError(

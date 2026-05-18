@@ -12,7 +12,6 @@ logs_dir = "C:/Users/you/Modpacks/logs/"
 [cli.logging]
 level = "info"  # log level: debug, info, warning, error
 target = "file"  # logging target: file, console, both
-file_path = ""   # optional file path for logs (empty means using output_dir)
 use_ui = true    # whether to show progress UI
 
 [cli.ui]
@@ -30,6 +29,7 @@ mod_glob = "*.jar"     # pattern to match mod files (e.g., "/*.jar")
 base_url = "https://api.modrinth.com/v2"
 timeout_seconds = 10
 user_agent = "MinecraftModpackCLI/0.x"
+download_chunk_size = 8192  # chunk size in bytes for downloading files
 
 # Resolver settings (related to modrinth)
 [services.modrinth.resolve]

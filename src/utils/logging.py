@@ -14,6 +14,7 @@ from enum import IntEnum, Enum
 from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING
 
+# === LOCAL ===
 if TYPE_CHECKING:
     from ..cli.ui import UI
 
@@ -91,6 +92,7 @@ class Logger:
         self.target = target
         self.file_path = file_path or None
         self._ui = ui
+
         # Ensure the log file exists before any writes.
         if self.file_path:
             self.file_path.touch(exist_ok=True)

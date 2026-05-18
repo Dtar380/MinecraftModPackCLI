@@ -29,12 +29,6 @@ manifest_param = Argument(
     required=True,
     type=clickPath(exists=True, dir_okay=False, path_type=Path),
 )
-version_param = Option(
-    ["--version"],
-    default="1.0.0",
-    type=str,
-    help="Type the version of the ModPack",
-)
 server_param = Option(
     ["--server"], is_flag=True, default=False, help="Server only export"
 )
@@ -47,3 +41,24 @@ verbose_param = Option(
     default=False,
     help="Adds more logs to the terminal",
 )
+
+
+# ===============================================
+#  PARAM FACTORIES  (config-aware defaults)
+# ===============================================
+def make_version_param(default_version: str) -> Option:
+    """
+    Create a version Option with a config-based default.
+
+    Parameters:
+        default_version: Version string from AppConfig.defaults.names.version.
+
+    Returns:
+        Option: Click option for the pack version.
+    """
+    return Option(
+        ["--version"],
+        default=default_version,
+        type=str,
+        help="Type the version of the ModPack",
+    )

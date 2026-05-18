@@ -12,6 +12,9 @@ from enum import Enum
 from typing import Iterable, Optional
 import sys
 
+# === LOCAL ===
+from ..models.config import UIConfig
+
 
 # ===============================================
 #  ENUMS
@@ -37,16 +40,16 @@ class UI:
     Helper for CLI status output and spinners
     """
 
-    def __init__(self) -> None:
+    def __init__(self, config: UIConfig) -> None:
 
         """
         Initializes the UI state
         """
 
+        self._config = config
+
         self._current_stage: Optional[str] = None
         self._bar_active = False
-        self._bar_width = 50
-        self._label_width = 36
         self._last_progress: float = 0.0
         self._last_render_len = 0
         self._bar_drawn = False
@@ -64,8 +67,8 @@ class UI:
         """
 
         progress = min(max(progress, 0.0), 1.0)
-        filled = int(self._bar_width * progress)
-        empty = self._bar_width - filled
+        filled = int(self._config.bar_width * progress)
+        empty = self._config.bar_width - filled
         return f"[{'#' * filled}{'-' * empty}] {int(progress * 100)}%"
 
     def _stage_line(self, label: str, progress: float) -> str:
@@ -81,7 +84,7 @@ class UI:
             str: Rendered stage line
         """
 
-        return f"[STAGE] {label.ljust(self._label_width)} {self._bar(progress)}"
+        return f"[STAGE] {label.ljust(self._config.label_width)} {self._bar(progress)}"
 
     def is_bar_active(self) -> bool:
 
@@ -132,7 +135,7 @@ class UI:
         # Build a consistent tag prefix for all UI messages.
         tag = f"[{level.name}]"
         msg = f"{tag} {text}" if text else tag
-        if self._bar_active:
+        if self._config.enable_progress and self._bar_active:
             self.clear_bar_line()
             print(msg)
             self.redraw_bar()
@@ -201,7 +204,7 @@ class UI:
             return
 
         text = message or (self._current_stage or "Done")
-        line = f"[DONE]  {text.ljust(self._label_width)} {self._bar(1.0)}"
+        line = f"[DONE]  {text.ljust(self._config.label_width)} {self._bar(1.0)}"
         padding = max(self._last_render_len - len(line), 0)
         sys.stdout.write("\r" + line + (" " * padding) + "\n")
         self._bar_active = False
@@ -222,7 +225,7 @@ class UI:
         if not self._bar_active:
             return
         text = message or (self._current_stage or "Failed")
-        line = f"[FAIL]  {text.ljust(self._label_width)} {self._bar(0.0)}"
+        line = f"[FAIL]  {text.ljust(self._config.label_width)} {self._bar(0.0)}"
         padding = max(self._last_render_len - len(line), 0)
         sys.stdout.write("\r" + line + (" " * padding) + "\n")
         self._bar_active = False

@@ -13,21 +13,23 @@ import inspect
 from pathlib import Path
 import traceback
 
-# === EXTERNAL ===
+# === THIRD PARTY ===
 from click import Command, Group  # type: ignore
 
 # === LOCAL ===
 from .options import (
+    make_version_param,
     modpack_param,
     src_param,
     manifest_param,
-    version_param,
     server_param,
     client_param,
     verbose_param,
 )
 from .ui import UI
 from ..core import Builder
+from ..core import ConfigManager
+from ..models import AppConfig
 from ..utils import errors, Logger, LogLevel, LogTarget  # pylint: disable=W0611
 
 
@@ -40,8 +42,6 @@ class APP(Group):
     CLI application group that registers and runs commands
     """
 
-    cwd: Path = Path.cwd()
-
     def __init__(self, *args, **kwargs) -> None:  # pylint: disable=W0613
 
         """
@@ -49,13 +49,22 @@ class APP(Group):
         """
 
         super().__init__()
-        self.__register_commands()
 
-        self.log_dir = self.cwd / "logs"
+        self._confmanager = ConfigManager()
+        self._config = AppConfig()
+
+        self.__start_config()
+
+        self.log_dir = self._config.defaults.paths.logs_dir
+        self.output_dir = self._config.defaults.paths.output_dir
+
         self.log_dir.mkdir(parents=True, exist_ok=True)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        self.ui = UI()
-        self.builder = Builder(self.ui)
+        self.ui = UI(self._config.cli.ui)
+        self.builder = Builder(self._config, self.ui)
+
+        self.__register_commands()
 
     def __register_commands(self) -> None:
 
@@ -84,6 +93,12 @@ class APP(Group):
             if isinstance(result, Command):
                 self.add_command(result)
 
+    def __start_config(self) -> None:
+        if self._confmanager.config_file.exists():
+            self._config = self._confmanager.read()
+        else:
+            self._config = self._confmanager.generate_default()
+
     def _mods_dir(self, src: Path) -> Path:
 
         """
@@ -111,8 +126,10 @@ class APP(Group):
             Logger: Configured logger instance
         """
 
-        level = LogLevel.DEBUG if verbose else LogLevel.INFO
-        target = LogTarget.BOTH if verbose else LogTarget.FILE
+        logging = self._config.cli.logging
+
+        level = LogLevel.DEBUG if verbose else LogLevel[logging.level.upper()]
+        target = LogTarget.BOTH if verbose else LogTarget[logging.target.upper()]
         ts = datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
         return Logger(
             level=level,
@@ -156,6 +173,31 @@ class APP(Group):
         logger.error(str(err), context=context)
         return 1
 
+    def init(self) -> Command:
+
+        current_frame = inspect.currentframe()
+        name = current_frame.f_code.co_name if current_frame else ""
+        help_text = "Init the config"
+        params = [verbose_param]
+
+        def callback(verbose: bool = False) -> int:
+
+            logger = self._logger("export", verbose)
+            try:
+                self._confmanager.init()
+                return 0
+            except errors.AppError as exc:
+                return self._handle_app_error(exc, logger)
+            except Exception as exc:
+                self.ui.fail()
+                self.ui.error("Unexpected error")
+                logger.error("Unexpected error", context={"error": str(exc)})
+                return 1
+
+        return Command(
+            name=name, help=help_text, callback=callback, params=params
+        )
+
     def export(self) -> Command:
 
         """
@@ -168,10 +210,11 @@ class APP(Group):
         current_frame = inspect.currentframe()
         name = current_frame.f_code.co_name if current_frame else ""
         help_text = "Export the modpack and create a manifest"
+        version_opt = make_version_param(self._config.defaults.names.version)
         params = [
             modpack_param,
             src_param,
-            version_param,
+            version_opt,
             server_param,
             client_param,
             verbose_param,
@@ -180,7 +223,7 @@ class APP(Group):
         def callback(
             modpack: str,
             src: Path,
-            version: str = version_param.default,
+            version: str = self._config.defaults.names.version,
             server: bool = server_param.default,
             client: bool = client_param.default,
             verbose: bool = False
@@ -389,7 +432,7 @@ class APP(Group):
         result = self.builder.export(
             manifest=manifest,
             src_dir=mods_dir,
-            output_dir=self.cwd,
+            output_dir=self._config.defaults.paths.output_dir,
             logger=logger,
         )
         self.ui.done(f"Exporting {side} pack")
@@ -428,12 +471,13 @@ class APP(Group):
         current_frame = inspect.currentframe()
         name = current_frame.f_code.co_name if current_frame else ""
         help_text = "Create the manifest"
-        params = [modpack_param, src_param, version_param, verbose_param]
+        version_opt = make_version_param(self._config.defaults.names.version)
+        params = [modpack_param, src_param, version_opt, verbose_param]
 
         def callback(
             modpack: str,
             src: Path,
-            version: str = version_param.default,
+            version: str = self._config.defaults.names.version,
             verbose: bool = False,
         ) -> int:
 
@@ -453,7 +497,7 @@ class APP(Group):
             logger = self._logger("manifest", verbose)
             try:
                 mods_dir = self._mods_dir(src)
-                output_dir = mods_dir.parent
+                output_dir = self._config.defaults.paths.output_dir
 
                 logger.info("Command start", context={"command": "manifest"})
                 logger.debug(
@@ -706,7 +750,7 @@ class APP(Group):
                 self.ui.stage("Building modpack")
                 result = self.builder.build(
                     manifest_path=manifest,
-                    output_dir=self.cwd,
+                    output_dir=self._config.defaults.paths.output_dir,
                     logger=logger,
                 )
                 self.ui.done("Building modpack")

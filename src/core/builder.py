@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
 # === LOCAL ===
-from ..models import Dependency, Manifest, Mod
+from ..models import Dependency, Manifest, Mod, AppConfig
 from ..services import FilesystemService, ModrinthService
 from ..utils import errors
 from ..utils.logging import Logger
@@ -73,16 +73,18 @@ class Builder:
     Exposes endpoints to orchestrate services
     """
 
-    def __init__(self, ui: Optional["UI"] = None) -> None:
+    def __init__(self, config: AppConfig, ui: Optional["UI"] = None) -> None:
 
         """
         Initializes service dependencies
         """
 
-        self._fs = FilesystemService(ui=ui)
-        self._modrinth = ModrinthService(ui=ui)
+        self._fs = FilesystemService(config.services.filesystem, ui=ui)
+        self._modrinth = ModrinthService(config.services.modrinth, ui=ui)
         self._now = datetime.now
         self._ui = ui
+        self._core_config = config.core
+        self._resolve_config = config.services.modrinth.resolve
 
     def discover_mods(
         self, mods_dir: Path, logger: Optional[Logger] = None
@@ -196,7 +198,7 @@ class Builder:
     def _pick_version(self, versions: set[str]) -> str:
 
         """
-        Picks the newest Minecraft version from a set
+        Picks a Minecraft version from a set using the configured version_policy.
 
         Parameters:
             versions (set[str]): Available Minecraft versions
@@ -213,13 +215,25 @@ class Builder:
                 "No compatible versions found",
                 code="no_compatible_versions",
             )
-        # Sort by numeric parts to handle dotted version strings.
-        return sorted(versions, key=lambda v: [int(p) for p in v.split(".") if p.isdigit()])[-1]
+
+        policy = self._resolve_config.version_policy
+
+        if policy == "latest_compatible":
+            # Sort by numeric parts to pick the highest dotted version.
+            return sorted(
+                versions,
+                key=lambda v: [int(p) for p in v.split(".") if p.isdigit()],
+            )[-1]
+
+        raise errors.ConfigError(
+            f"Unknown version_policy: {policy}",
+            code="unknown_version_policy",
+        )
 
     def _pick_loader(self, loaders: set[str]) -> str:
 
         """
-        Picks a preferred loader from a set
+        Picks a preferred loader from a set using the configured loader_policy.
 
         Parameters:
             loaders (set[str]): Available Minecraft loaders
@@ -236,9 +250,11 @@ class Builder:
                 "No compatible loaders found",
                 code="no_compatible_loaders",
             )
-        # Prefer fabric when available for consistent defaults.
-        if "fabric" in loaders:
-            return "fabric"
+
+        # Extract the preferred loader from the policy (e.g. "prefer_fabric" -> "fabric").
+        preferred = self._resolve_config.loader_policy.split("_", 1)[-1]
+        if preferred in loaders:
+            return preferred
         return sorted(loaders)[0]
 
     def drop_dependencies(self, mods: list[Mod]) -> list[Mod]:
