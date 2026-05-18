@@ -65,7 +65,6 @@ Currently working on version 0.5.0
 Already Planned releases
 | VERSION | INCLUDES                              |
 | ------- | ------------------------------------- |
-| 0.5.0   | User Configurations (TOML format)     |
 | 0.6.0   | Add more commands and supported files |
 | 0.7.0   | Allow custom mods                     |
 | 0.8.0   | Improved code base                    |
