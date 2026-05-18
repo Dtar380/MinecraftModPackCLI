@@ -46,6 +46,10 @@ class APP(Group):
 
         """
         Initializes the CLI app and registers commands
+
+        Parameters:
+            *args: Positional arguments forwarded to Click Group
+            **kwargs: Keyword arguments forwarded to Click Group
         """
 
         super().__init__()
@@ -94,6 +98,15 @@ class APP(Group):
                 self.add_command(result)
 
     def __start_config(self) -> None:
+
+        """
+        Load config from file, or fall back to defaults if none exists
+
+        Raises:
+            ConfigError: If the config file exists but has type mismatches or
+                invalid values.
+        """
+
         if self._confmanager.config_file.exists():
             self._config = self._confmanager.read()
         else:
@@ -174,6 +187,13 @@ class APP(Group):
         return 1
 
     def init(self) -> Command:
+
+        """
+        Creates the init command
+
+        Returns:
+            Command: Click command for initializing config
+        """
 
         current_frame = inspect.currentframe()
         name = current_frame.f_code.co_name if current_frame else ""

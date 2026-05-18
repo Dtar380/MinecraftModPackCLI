@@ -39,6 +39,10 @@ class Dependency:
 
         Returns:
             Dependency: Dependency object
+
+        Raises:
+            ModpackError: If required dependency fields (project_id, version_id,
+                dependency_type) are missing or have incorrect types in the input dict.
         """
 
         # Map Modrinth dependency fields into the dataclass.
@@ -57,9 +61,14 @@ class Dependency:
 
     @property
     def is_required(self) -> bool:
+
         """
         Returns true when the dependency is required
+
+        Returns:
+            bool: True if dependency_type is "required"
         """
+
         return self.dependency_type == "required"
 
     def to_dict(self) -> dict:

@@ -50,12 +50,20 @@ class Mod:
     ) -> Mod:
 
         """
-        Builds a Mod object from a modrinth retrieved serialized project and version data
+        Builds a Mod object from a modrinth retrieved serialized project and
+version data
 
         Parameters:
             project_data (dict): Dict with the project data
             version_data (dict): Dict with the version data
             file_name (str): String with the filename of the mod
+
+        Returns:
+            Mod: Constructed mod instance
+
+        Raises:
+            ModpackError: If required fields are missing from the API response,
+                the response has incorrect types, or the file list is empty.
         """
 
         # Translate Modrinth project/version payloads into local fields.
@@ -95,6 +103,10 @@ class Mod:
 
         Returns:
             Mod: Mod object
+
+        Raises:
+            ModpackError: If required fields are missing from the dict data, or
+                values have incorrect types.
         """
 
         # Manifest data uses a "source" field to mark dependencies.
@@ -145,6 +157,9 @@ class Mod:
 
         """
         Returns true when the mod supports the client side
+
+        Returns:
+            bool: True if client_side is not "unsupported"
         """
 
         return self.client_side != "unsupported"
@@ -154,6 +169,9 @@ class Mod:
 
         """
         Returns true when the mod requires server installation
+
+        Returns:
+            bool: True if server_side is "required"
         """
 
         return self.server_side == "required"
@@ -162,6 +180,9 @@ class Mod:
 
         """
         Returns a readable identifier for the mod
+
+        Returns:
+            str: Human-readable mod identifier
         """
 
         return f"{self.name}: version_id={self.version_id}"

@@ -49,6 +49,9 @@ class Manifest:
 
         Returns:
             str: Latest version from the list
+
+        Raises:
+            ManifestError: If the versions list is empty
         """
 
         if not versions:
@@ -70,6 +73,9 @@ class Manifest:
 
         Returns:
             str: The first loader from the list unless fabric is pressent
+
+        Raises:
+            ManifestError: If the loaders list is empty
         """
 
         if not loaders:
@@ -93,6 +99,9 @@ class Manifest:
 
         Returns:
             Manifest: Manifest object
+
+        Raises:
+            ManifestError: If required fields are missing or invalid in the dict
         """
 
         # Allow either explicit fields or compatibility lists.

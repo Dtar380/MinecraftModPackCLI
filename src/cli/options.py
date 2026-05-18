@@ -47,6 +47,7 @@ verbose_param = Option(
 #  PARAM FACTORIES  (config-aware defaults)
 # ===============================================
 def make_version_param(default_version: str) -> Option:
+
     """
     Create a version Option with a config-based default.
 
@@ -56,6 +57,7 @@ def make_version_param(default_version: str) -> Option:
     Returns:
         Option: Click option for the pack version.
     """
+
     return Option(
         ["--version"],
         default=default_version,

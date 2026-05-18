@@ -44,6 +44,8 @@ class FilesystemService:
         Initializes the filesystem service
 
         Parameters:
+            config (FilesystemConfig): Configuration for mod glob patterns and
+                hash chunk sizes
             ui (Optional[UI]): Optional UI for progress updates
         """
 

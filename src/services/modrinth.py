@@ -37,6 +37,10 @@ class ModrinthService:
 
         """
         Initializes a Modrinth session client
+
+        Parameters:
+            config (ModrinthConfig): Configuration for base URL, timeouts, and user agent
+            ui (Optional[UI]): Optional UI for progress updates
         """
 
         self.session = requests.Session()
@@ -58,7 +62,8 @@ class ModrinthService:
             dict: Json serialized response with all files version data
 
         Raises:
-            RuntimeError: if the POST request failed
+            ModrinthError: If the POST request to /version_files fails due to network errors,
+                a non-2xx HTTP response, or an unparseable JSON response body.
         """
 
         try:
@@ -114,7 +119,8 @@ class ModrinthService:
             dict: Json serialized response with the project data
 
         Raises:
-            RuntimeError: if the GET request failed
+            ModrinthError: If the GET request to /project/{id} fails due to network errors,
+                a non-2xx HTTP response, or an unparseable JSON response body.
         """
 
         try:
@@ -173,7 +179,8 @@ class ModrinthService:
             dict: Json serialized response with the version data
 
         Raises:
-            RuntimeError: if the GET request failed
+            ModrinthError: If the GET request to /version/{id} fails due to network errors,
+                a non-2xx HTTP response, or an unparseable JSON response body.
         """
 
         try:
@@ -239,7 +246,8 @@ class ModrinthService:
             dict: Json serialized response with the versions of the project
 
         Raises:
-            RuntimeError: if the GET request failed
+            ModrinthError: If the GET request to /project/{id}/version fails due to network errors,
+                a non-2xx HTTP response, or an unparseable JSON response body.
         """
 
         try:
@@ -301,11 +309,18 @@ class ModrinthService:
         Resolves a list of hashes and returns mod objects
 
         Parameters:
-            hash_index (dict[str, Path]):Dictionary with hashes as Keys and paths to the files as values
+            hash_index (dict[str, Path]):Dictionary with hashes as Keys and
+                paths to the files as values
             logger (Optional[Logger]): Log helper
 
         Returns:
             list[Mod]: List with all the resolved mods
+
+        Raises:
+            ModrinthError: If any Modrinth API request (resolve_hashes or get_project)
+                fails due to network errors, non-2xx responses, or invalid JSON.
+            ModpackError: If the Modrinth API response data is malformed or
+                missing required fields.
         """
 
         result = self.resolve_hashes(list(hash_index.keys()), logger=logger)
@@ -340,7 +355,10 @@ class ModrinthService:
             logger (Optional[Logger]): Log helper
 
         Raises:
-            RuntimeError: if the GET request failed
+            ModrinthError: If the GET request to download the mod file fails due to network errors
+                or a non-2xx HTTP response.
+            FilesystemError: If the downloaded file cannot be written to the output directory
+                (e.g. permission denied, disk full).
         """
 
         if logger:

@@ -23,7 +23,10 @@ from .cli.app import APP
 def cli() -> None:
 
     """
-    Root Click command group
+    Root Click command group for the modpack CLI
+
+    Returns:
+        None: Delegates to Click's command dispatcher via the APP group
     """
 
 
@@ -31,6 +34,9 @@ def main() -> None:
 
     """
     Runs the CLI entrypoint
+
+    Returns:
+        None: Delegates to cli() which dispatches to Click
     """
 
     # Delegate to Click's command dispatcher.

@@ -1,6 +1,4 @@
-"""
-Configuration Manager
-"""
+"""Configuration persistence, validation, and defaults for the modpack CLI"""
 
 # ===============================================
 #  IMPORTS
@@ -34,29 +32,90 @@ VALID_VERSION_POLICIES = {"latest_compatible"}
 # ===============================================
 class ConfigManager:
 
+    """
+    Manages reading, writing, validating, and generating default configuration
+    """
+
     config_path = Path.home() / ".config" / "minecraftmodpack"
 
     def __init__(self) -> None:
+
+        """
+        Initialize the manager with a FilesystemService using default config
+        """
+
         self._fs = FilesystemService(AppConfig().services.filesystem)
 
     @property
     def config_file(self) -> Path:
+
+        """
+        Resolve the absolute path to the config.toml file
+
+        Returns:
+            Path: path to the config file
+        """
+
         return self.config_path / "config.toml"
 
     @classmethod
     def generate_default(cls) -> AppConfig:
+
+        """
+        Return a freshly-constructed AppConfig with all default values
+
+        Returns:
+            AppConfig:
+        """
+
         return AppConfig()
 
     def init(self) -> bool:
+
+        """
+        Write a default config file to disk
+
+        Returns:
+            bool: True on success (always)
+
+        Raises:
+            FilesystemError: If the default config file cannot be written to disk.
+        """
+
         self.save(self.generate_default())
         return True
 
     def save(self, config: AppConfig) -> bool:
+
+        """
+        Persist a config to the config file
+
+        Parameters:
+            config (AppConfig): The configuration to write
+
+        Returns:
+            bool: True on success (always)
+
+        Raises:
+            FilesystemError: If the config file cannot be written to disk.
+        """
+
         self._fs.write_config(config, self.config_file)
         return True
 
     @staticmethod
     def _validate_values(config: AppConfig) -> bool:
+
+        """
+        Check value-level constraints (log levels, policies, etc.)
+
+        Parameters:
+            config (AppConfig): The configuration to validate
+
+        Returns:
+            bool: True when all values are within allowed sets
+        """
+
         logging = config.cli.logging
         if logging.level not in VALID_LOG_LEVELS:
             return False
@@ -73,13 +132,18 @@ class ConfigManager:
 
     @staticmethod
     def _validate_types(config: AppConfig) -> list[str]:
+
         """
         Walk the full AppConfig tree and verify every field matches its declared type.
+
+        Parameters:
+            config (AppConfig): The configuration to validate
 
         Returns:
             list[str]: Human-readable type-mismatch descriptions.
                        An empty list means all types are correct.
         """
+
         errors_list: list[str] = []
         ConfigManager._check_dataclass(AppConfig, config, [], errors_list)
         return errors_list
@@ -91,6 +155,7 @@ class ConfigManager:
         path: list[str],
         errors_list: list[str],
     ) -> None:
+
         """
         Recurse into one dataclass level, appending type errors to *errors_list*.
 
@@ -100,6 +165,7 @@ class ConfigManager:
             path: Current dotted-field-path (for error messages).
             errors_list: Accumulator for error strings.
         """
+
         try:
             hints = get_type_hints(dc_type)
         except (NameError, TypeError):
@@ -135,12 +201,22 @@ class ConfigManager:
 
     @staticmethod
     def _type_matches(expected: type, value: Any) -> bool:
+
         """
         Check whether *value* satisfies the *expected* type annotation.
 
-        Handles Optional (Union[X, None]), Path, bool (before int), and
-        simple isinstance checks.
+        Parameters:
+            expected (type): The type annotation to check against
+            value (Any): The value to check
+
+        Returns:
+            bool: True if the value matches the expected type
+
+        Notes:
+            Handles Optional (Union[X, None]), Path, bool (before int), and
+            simple isinstance checks.
         """
+
         origin = get_origin(expected)
 
         # Optional[X] → Union[X, None]
@@ -163,6 +239,18 @@ class ConfigManager:
         return isinstance(value, expected)
 
     def read(self) -> AppConfig:
+
+        """
+        Load, validate types, and validate values from the config file
+
+        Returns:
+            AppConfig: Parsed and validated configuration
+
+        Raises:
+            ConfigError: If the config file is missing, has type mismatches,
+                or contains invalid values
+        """
+
         if not self.config_file.exists():
             raise errors.ConfigError(
                 f"Config file not found at {self.config_file}. Run init first.",

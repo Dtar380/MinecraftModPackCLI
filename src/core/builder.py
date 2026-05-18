@@ -1,5 +1,5 @@
 """
-Builder Manager
+Orchestration layer for mod discovery, resolution, export, and build workflows
 """
 
 # ===============================================
@@ -77,6 +77,11 @@ class Builder:
 
         """
         Initializes service dependencies
+
+        Parameters:
+            config (AppConfig): Application configuration (filesystem, modrinth,
+                resolve settings)
+            ui (Optional[UI]): Optional UI for progress updates
         """
 
         self._fs = FilesystemService(config.services.filesystem, ui=ui)
@@ -99,6 +104,9 @@ class Builder:
 
         Returns:
             list[Path]: List with all jar files paths located
+
+        Raises:
+            FilesystemError: If the mods directory cannot be read or does not exist.
         """
 
         mods = self._fs.get_mods(mods_dir, logger=logger)
@@ -124,6 +132,10 @@ class Builder:
 
         Returns:
             dict[str, Path]: List with all jar files paths located
+
+        Raises:
+            FilesystemError: If any mod file cannot be read or hashed (e.g.
+                permission denied, corrupt file).
         """
 
         index = self._fs.build_hash_index(mods, logger=logger)
@@ -141,11 +153,17 @@ class Builder:
         Resolves a list of hashes and returns mod objects
 
         Parameters:
-            hash_index (dict[str, Path]):Dictionary with hashes as Keys and paths to the files as values
+            hash_index (dict[str, Path]):Dictionary with hashes as Keys and
+                paths to the files as values
             logger (Optional[Logger]): Log helper
 
         Returns:
             list[Mod]: List with all the resolved mods
+
+        Raises:
+            ModrinthError: If the Modrinth API request fails due to network
+                errors or bad responses.
+            ModpackError: If the Modrinth API response data is malformed.
         """
 
         mods = self._modrinth.resolve_mods(hash_index, logger=logger)
@@ -190,6 +208,10 @@ class Builder:
 
         Returns:
             tuple[str, str]: Selected Minecraft version and loader
+
+        Raises:
+            ValidationError: If no common versions or loaders exist across the mods.
+            ConfigError: If the configured version_policy is unknown.
         """
 
         common_versions, common_loaders = self.get_common_compatibility(mods)
@@ -207,7 +229,9 @@ class Builder:
             str: Selected Minecraft version
 
         Raises:
-            RuntimeError: if the set is empty
+            ValidationError: If the available versions set is empty (no
+                compatible versions found).
+            ConfigError: If the configured version_policy is not recognized.
         """
 
         if not versions:
@@ -242,7 +266,8 @@ class Builder:
             str: Selected Minecraft loader
 
         Raises:
-            RuntimeError: if the set is empty
+            ValidationError: If the available loaders set is empty (no
+                compatible loaders found).
         """
 
         if not loaders:
@@ -309,6 +334,10 @@ class Builder:
 
         Returns:
             Mod: Resolved dependency mod
+
+        Raises:
+            ModrinthError: If the Modrinth API request fails
+            ModpackError: If the Modrinth response data is malformed
         """
 
         project_data = self._modrinth.get_project(dep.project_id, logger=logger)
@@ -338,6 +367,15 @@ class Builder:
 
         Returns:
             tuple[list[Mod], dict[str, set[str]]]: Full mod list and dependency map
+
+        Raises:
+            ModpackError: If no compatible versions are found for a required
+                dependency during resolution.
+            ModrinthError: If the Modrinth API request (get_project, get_version
+                , or get_project_versions) fails.
+            ValidationError: If version or loader sets are empty when inferring
+                compatibility defaults.
+            ConfigError: If the configured version_policy is unknown.
         """
 
         # Index known mods by project id to avoid duplicate lookups.
@@ -416,7 +454,9 @@ class Builder:
                 queue.append(dep_mod)
 
         full_pack = [by_project[pid] for pid in expanded if pid in by_project]
-        filtered_map = {pid: deps for pid, deps in dependency_map.items() if pid in expanded}
+        filtered_map = {
+            pid: deps for pid, deps in dependency_map.items() if pid in expanded
+        }
 
         if logger:
             logger.info(
@@ -498,6 +538,10 @@ class Builder:
 
         Returns:
             ExportResult: Export metadata and exported mods
+
+        Raises:
+            ExportError: If a mod file cannot be copied or downloaded, or if
+                manifest.json cannot be written.
         """
 
         result = ExportResult()
@@ -589,6 +633,10 @@ class Builder:
 
         Returns:
             bool: True if the manifest was written
+
+        Raises:
+            FilesystemError: If the manifest file cannot be written (e.g.
+                permission denied, disk full).
         """
 
         return self._fs.write_manifest(manifest, output_path, logger=logger)
@@ -611,6 +659,9 @@ class Builder:
 
         Returns:
             ValidationResult: Missing, extra, and mismatched mods
+
+        Raises:
+            ValidationError: If the manifest.json file cannot be read or parsed.
         """
 
         try:
@@ -684,6 +735,10 @@ class Builder:
 
         Returns:
             BuildResult: Build metadata and downloaded mods
+
+        Raises:
+            BuildError: If the manifest.json cannot be read, or if a mod
+                download during the build fails.
         """
 
         result = BuildResult()

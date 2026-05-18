@@ -1,5 +1,5 @@
 """
-UI
+Terminal UI helpers for stage progress bars and message output
 """
 
 # ===============================================
@@ -44,6 +44,10 @@ class UI:
 
         """
         Initializes the UI state
+
+        Parameters:
+            config (UIConfig): Configuration for bar widths, labels, and progress
+                display settings
         """
 
         self._config = config
@@ -90,6 +94,9 @@ class UI:
 
         """
         Returns true when a progress bar is active
+
+        Returns:
+            bool: True when a stage progress bar is currently being rendered
         """
 
         return self._bar_active
