@@ -10,5 +10,5 @@ from __future__ import annotations
 # ===============================================
 #  GLOBAL VARIABLES
 # ===============================================
-version = "0.5.0"
+version = "0.5.1"
 name = "MinecraftModPackCLI"
