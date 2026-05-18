@@ -64,7 +64,6 @@ class LoggingConfig:
 
     level: str = "info"
     target: str = "file"
-    file_path: str = ""
     use_ui: bool = True
 
 
@@ -127,6 +126,7 @@ class ModrinthConfig:
     timeout_seconds: int = 10
     user_agent: str = "MinecraftModpackCLI/0.x"
     resolve: ResolveConfig = field(default_factory=ResolveConfig)
+    download_chunk_size: int = 8192
 
 
 @dataclass(slots=True)
