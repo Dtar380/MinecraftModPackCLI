@@ -215,7 +215,7 @@ class APP(Group):
                 return 1
 
         return Command(
-            name=name, help=help_text, callback=callback, params=params
+            name=name, help=help_text, callback=callback, params=params  # type: ignore
         )
 
     def export(self) -> Command:
@@ -244,8 +244,8 @@ class APP(Group):
             modpack: str,
             src: Path,
             version: str = self._config.defaults.names.version,
-            server: bool = server_param.default,
-            client: bool = client_param.default,
+            server: bool = server_param.default,  # type: ignore
+            client: bool = client_param.default,  # type: ignore
             verbose: bool = False
         ) -> int:
 
@@ -517,7 +517,7 @@ class APP(Group):
             logger = self._logger("manifest", verbose)
             try:
                 mods_dir = self._mods_dir(src)
-                output_dir = self._config.defaults.paths.output_dir
+                output_dir = src
 
                 logger.info("Command start", context={"command": "manifest"})
                 logger.debug(

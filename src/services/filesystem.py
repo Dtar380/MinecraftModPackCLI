@@ -256,7 +256,7 @@ class FilesystemService:
     def write_config(
         self,
         config: AppConfig,
-        ouput_dir: Path,
+        output_file: Path,
         logger: Optional[Logger] = None,
     ) -> bool:
 
@@ -275,7 +275,7 @@ class FilesystemService:
             FilesystemError: If the config file cannot be written
         """
 
-        file_path = ouput_dir / "config.toml"
+        file_path = output_file
 
         try:
             with open(file_path, "w", encoding="utf-8") as f:

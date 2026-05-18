@@ -27,7 +27,7 @@ class NamesConfig:
     """
 
     name: str = "MyPack"
-    version: str = "1.0"
+    version: str = "1.0.0"
 
 
 @dataclass(slots=True)
